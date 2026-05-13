@@ -61,19 +61,35 @@ export function EstimateApp() {
   };
 
   return (
-    <div className="print-root flex min-h-0 flex-1 flex-col bg-zinc-50 text-zinc-900">
-      <header className="print-hide border-b border-zinc-200 bg-white px-4 py-3 shadow-sm">
-        <div className="mx-auto flex max-w-3xl flex-col gap-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-amber-800">
-            ProBuild
-          </p>
-          <h1 className="text-lg font-semibold leading-tight sm:text-xl">
-            Construction estimate
-          </h1>
+    <div className="print-root relative flex min-h-0 flex-1 flex-col bg-gradient-to-b from-stone-100 via-stone-50 to-teal-50/40 text-stone-900">
+      <div
+        className="print-hide pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(45,212,191,0.14),transparent_55%)]"
+        aria-hidden
+      />
+
+      <header className="print-hide relative border-b border-stone-200/80 bg-white/75 px-4 py-4 shadow-[0_1px_0_rgba(255,255,255,0.6)_inset,0_8px_32px_-12px_rgba(28,25,23,0.12)] backdrop-blur-md">
+        <div className="mx-auto flex max-w-3xl items-start gap-4">
+          <div
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-600 to-teal-700 text-sm font-bold tracking-tight text-white shadow-md shadow-teal-900/25 ring-1 ring-white/25"
+            aria-hidden
+          >
+            PB
+          </div>
+          <div className="min-w-0 flex-1 pt-0.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-teal-800/90">
+              ProBuild
+            </p>
+            <h1 className="mt-0.5 text-balance text-xl font-semibold tracking-tight text-stone-900 sm:text-2xl">
+              Construction estimate
+            </h1>
+            <p className="mt-1 max-w-xl text-pretty text-sm leading-relaxed text-stone-600">
+              Line items, categories, and totals—saved on this device as you work.
+            </p>
+          </div>
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-40 pt-4 sm:pb-36">
+      <div className="relative mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-44 pt-6 sm:pb-40">
         <EstimateHeader />
         <EstimateToolbar
           onAddLine={addLine}
@@ -81,19 +97,28 @@ export function EstimateApp() {
           onPrint={handlePrint}
           onClear={handleClear}
         />
-        <section
-          aria-label="Line items"
-          className="mt-4 flex flex-col gap-3 print-show"
-        >
-          {estimate.lines.map((line, index) => (
-            <LineItemRow
-              key={line.id}
-              line={line}
-              index={index}
-              totalLines={estimate.lines.length}
-            />
-          ))}
-        </section>
+
+        <div className="mt-8 print-show">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold tracking-tight text-stone-900">Line items</h2>
+              <p className="mt-0.5 text-xs text-stone-500">
+                {estimate.lines.length} line{estimate.lines.length === 1 ? "" : "s"}
+              </p>
+            </div>
+          </div>
+
+          <section aria-label="Line items" className="flex flex-col gap-4">
+            {estimate.lines.map((line, index) => (
+              <LineItemRow
+                key={line.id}
+                line={line}
+                index={index}
+                totalLines={estimate.lines.length}
+              />
+            ))}
+          </section>
+        </div>
       </div>
 
       <TotalsPanel />
