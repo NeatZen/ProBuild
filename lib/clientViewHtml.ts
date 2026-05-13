@@ -1,3 +1,4 @@
+import type { WorkspaceBranding } from "./appTypes";
 import type { Estimate } from "./estimateTypes";
 import { estimateTotals } from "./estimateMath";
 
@@ -11,7 +12,12 @@ function escapeHtml(s: string): string {
 }
 
 /** Self-contained read-only HTML bundle (no server) for sharing with clients. */
-export function buildClientViewHtml(estimate: Estimate, locale: string, currency: string): string {
+export function buildClientViewHtml(
+  estimate: Estimate,
+  locale: string,
+  currency: string,
+  branding?: Partial<WorkspaceBranding> | null,
+): string {
   const t = estimateTotals(estimate);
   const fmt = new Intl.NumberFormat(locale || "en-US", {
     style: "currency",
@@ -22,6 +28,12 @@ export function buildClientViewHtml(estimate: Estimate, locale: string, currency
   const money = (n: number) => fmt.format(Number.isFinite(n) ? n : 0);
 
   const title = estimate.projectName.trim() || "Construction estimate";
+  const company = branding?.companyName?.trim() ?? "";
+  const tagline = branding?.companyTagline?.trim() ?? "";
+  const terms = branding?.proposalTerms?.trim() ?? "";
+  const logo = branding?.logoDataUrl?.trim() ?? "";
+
+  const sectionLabel = (id: string) => estimate.sections.find((s) => s.id === id)?.label ?? "—";
 
   const rows = estimate.lines
     .map((line) => {
@@ -30,6 +42,8 @@ export function buildClientViewHtml(estimate: Estimate, locale: string, currency
       return `<tr>
         <td>${escapeHtml(line.description || "—")}</td>
         <td>${escapeHtml(line.category || "—")}</td>
+        <td>${escapeHtml(line.lineType)}</td>
+        <td>${escapeHtml(sectionLabel(line.sectionId))}</td>
         <td class="num">${escapeHtml(String(line.quantity))}</td>
         <td>${escapeHtml(line.unit || "")}</td>
         <td class="num">${money(line.unitCost)}</td>
@@ -38,7 +52,18 @@ export function buildClientViewHtml(estimate: Estimate, locale: string, currency
     })
     .join("");
 
-  const json = JSON.stringify({ estimate, locale, currency }).replace(/</g, "\\u003c");
+  const json = JSON.stringify({ estimate, locale, currency, branding }).replace(/</g, "\\u003c");
+
+  const brandHeader =
+    logo || company
+      ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+          ${logo ? `<img src="${escapeHtml(logo)}" alt="" style="max-height:48px;max-width:160px;object-fit:contain;" />` : ""}
+          <div>
+            ${company ? `<div style="font-size:1.05rem;font-weight:700;">${escapeHtml(company)}</div>` : ""}
+            ${tagline ? `<div class="muted" style="margin:0;">${escapeHtml(tagline)}</div>` : ""}
+          </div>
+        </div>`
+      : "";
 
   return `<!DOCTYPE html>
 <html lang="${escapeHtml(locale.split("-")[0] || "en")}">
@@ -67,10 +92,11 @@ export function buildClientViewHtml(estimate: Estimate, locale: string, currency
 </head>
 <body>
   <div class="card">
-    <h1>${escapeHtml(title)}</h1>
+    ${brandHeader}
+    <h1>${escapeHtml(company ? `${company} — ${title}` : title)}</h1>
     <p class="muted">Read-only client view · generated locally</p>
     <table>
-      <thead><tr><th>Description</th><th>Category</th><th class="num">Qty</th><th>Unit</th><th class="num">Unit cost</th><th class="num">Extended</th></tr></thead>
+      <thead><tr><th>Description</th><th>Category</th><th>Type</th><th>Section</th><th class="num">Qty</th><th>Unit</th><th class="num">Unit cost</th><th class="num">Extended</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <div class="tot">
@@ -89,6 +115,11 @@ export function buildClientViewHtml(estimate: Estimate, locale: string, currency
     ${
       estimate.clientNotes.trim()
         ? `<div class="notes"><strong>Notes</strong><br/>${escapeHtml(estimate.clientNotes)}</div>`
+        : ""
+    }
+    ${
+      terms
+        ? `<div class="notes" style="border-top:1px solid #e7e5e4;padding-top:14px;margin-top:18px;"><strong>Terms &amp; conditions</strong><br/>${escapeHtml(terms)}</div>`
         : ""
     }
   </div>

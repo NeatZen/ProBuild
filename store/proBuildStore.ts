@@ -7,15 +7,30 @@ import type {
   CurrencyCode,
   DensityMode,
   EstimateRevision,
+  SavedLineTemplate,
   SaveStatus,
+  WorkspaceBranding,
 } from "@/lib/appTypes";
-import { APP_SCHEMA_VERSION, defaultSettings, defaultUiState } from "@/lib/appTypes";
+import {
+  APP_SCHEMA_VERSION,
+  defaultBranding,
+  defaultSettings,
+  defaultUiState,
+} from "@/lib/appTypes";
 import { ASSEMBLIES } from "@/lib/assemblies";
+import { parseEstimateCsv } from "@/lib/csvImport";
 import { normalizeEstimate } from "@/lib/estimateNormalize";
-import type { CategoryMarkup, Estimate, LineItem } from "@/lib/estimateTypes";
+import type {
+  CategoryMarkup,
+  Estimate,
+  EstimateSection,
+  LineItem,
+  LineType,
+} from "@/lib/estimateTypes";
 import {
   createDefaultEstimate,
   createEmptyLineItem,
+  inferLineTypeFromCategory,
   resetEstimateInPlace,
 } from "@/lib/estimateTypes";
 import { LINE_TEMPLATES } from "@/lib/lineTemplates";
@@ -52,6 +67,45 @@ function getActive(estimates: Estimate[], activeEstimateId: string): Estimate {
   return estimates[0];
 }
 
+function defaultSectionId(e: Estimate): string {
+  return e.sections[0]?.id ?? "";
+}
+
+function resolveSectionFromHint(e: Estimate, hint: string): string {
+  const t = hint.trim().toLowerCase();
+  if (!t) return defaultSectionId(e);
+  const hit = e.sections.find((s) => s.label.trim().toLowerCase() === t);
+  if (hit) return hit.id;
+  const partial = e.sections.find((s) => s.label.trim().toLowerCase().includes(t));
+  return partial?.id ?? defaultSectionId(e);
+}
+
+function lineFromSeed(
+  row: {
+    description: string;
+    category: string;
+    quantity: number;
+    unit: string;
+    unitCost: number;
+    lineType?: LineType;
+  },
+  sectionId: string,
+  kit?: { kitId: string; kitName: string },
+): LineItem {
+  return {
+    id: newId(),
+    description: row.description,
+    category: row.category,
+    quantity: row.quantity,
+    unit: row.unit,
+    unitCost: row.unitCost,
+    lineType: row.lineType ?? inferLineTypeFromCategory(row.category),
+    sectionId,
+    kitId: kit?.kitId,
+    kitName: kit?.kitName,
+  };
+}
+
 function remapKitIds(lines: LineItem[]): LineItem[] {
   const kitMap = new Map<string, string>();
   return lines.map((row) => {
@@ -65,16 +119,36 @@ function remapKitIds(lines: LineItem[]): LineItem[] {
 }
 
 function cloneEstimate(source: Estimate): Estimate {
+  const newSections: EstimateSection[] = source.sections.map((s) => ({
+    ...s,
+    id: newId(),
+  }));
+  const oldToNew = new Map<string, string>();
+  source.sections.forEach((s, i) => {
+    oldToNew.set(s.id, newSections[i].id);
+  });
+  const lines = remapKitIds(source.lines).map((row) => ({
+    ...row,
+    sectionId: oldToNew.get(row.sectionId) ?? newSections[0].id,
+  }));
   return {
     ...source,
     id: newId(),
+    version: source.version,
     categoryMarkups: source.categoryMarkups.map((r) => ({ ...r })),
-    lines: remapKitIds(source.lines),
+    sections: newSections,
+    lines,
     projectName: source.projectName.trim()
       ? `${source.projectName.trim()} (copy)`
       : "Untitled copy",
   };
 }
+
+export type UndoEntry = {
+  id: string;
+  label: string;
+  snapshot: string;
+};
 
 export type ProBuildState = {
   estimates: Estimate[];
@@ -82,6 +156,9 @@ export type ProBuildState = {
   revisionsByEstimateId: Record<string, EstimateRevision[]>;
   settings: AppSettings;
   ui: AppUiState;
+  branding: WorkspaceBranding;
+  savedLineLibrary: SavedLineTemplate[];
+  undoStack: UndoEntry[];
   saveStatus: SaveStatus;
   saveErrorMessage: string | null;
   hydrated: boolean;
@@ -117,11 +194,30 @@ export type ProBuildState = {
   setCurrency: (c: CurrencyCode) => void;
   setLocale: (locale: string) => void;
   setDensity: (d: DensityMode) => void;
+
+  setBranding: (patch: Partial<WorkspaceBranding>) => void;
+  setOnboardingComplete: (complete: boolean) => void;
+
+  addAlternateSection: () => void;
+  setSectionLabel: (sectionId: string, label: string) => void;
+  removeSection: (sectionId: string) => void;
+
+  saveLineToLibrary: (lineId: string, name: string) => void;
+  removeSavedLibraryItem: (templateId: string) => void;
+  insertSavedLibraryItem: (templateId: string) => void;
+
+  pushActiveUndo: (label: string) => void;
+  undoLast: () => void;
+
+  importCsvText: (text: string) => { ok: boolean; error?: string; imported?: number };
+
   importPersistJson: (json: string) => { ok: boolean; error?: string };
   exportPersistJson: () => string;
   exportActiveEstimateJson: () => string;
   clearAllData: () => void;
 };
+
+const MAX_UNDO = 12;
 
 export function persistSnapshot(state: ProBuildState): AppPersist {
   return normalizeAppPersist({
@@ -132,9 +228,20 @@ export function persistSnapshot(state: ProBuildState): AppPersist {
     ui: {
       lineFilter: state.ui.lineFilter,
       collapsedLineIds: state.ui.collapsedLineIds,
+      onboardingComplete: state.ui.onboardingComplete,
     },
     revisionsByEstimateId: state.revisionsByEstimateId,
+    branding: state.branding,
+    savedLineLibrary: state.savedLineLibrary,
   });
+}
+
+function pushUndo(s: ProBuildState, label: string): Pick<ProBuildState, "undoStack"> {
+  const cur = normalizeEstimate(getActive(s.estimates, activeIdOf(s)));
+  const snapshot = JSON.stringify(cur);
+  const entry: UndoEntry = { id: newId(), label, snapshot };
+  const undoStack = [entry, ...s.undoStack].slice(0, MAX_UNDO);
+  return { undoStack };
 }
 
 const seed = createDefaultAppPersist();
@@ -145,6 +252,9 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
   revisionsByEstimateId: seed.revisionsByEstimateId ?? {},
   settings: { ...defaultSettings, ...seed.settings },
   ui: { ...defaultUiState, ...seed.ui },
+  branding: { ...defaultBranding, ...seed.branding },
+  savedLineLibrary: seed.savedLineLibrary ?? [],
+  undoStack: [],
   saveStatus: "idle",
   saveErrorMessage: null,
   hydrated: false,
@@ -153,6 +263,10 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
     if (get().hydrated) return;
     const p = loadOrCreateAppPersist();
     const n = normalizeAppPersist(p);
+    const skipTour =
+      typeof window !== "undefined" &&
+      (new URLSearchParams(window.location.search).has("skipTour") ||
+        process.env.NEXT_PUBLIC_E2E === "1");
     set({
       estimates: n.estimates,
       activeEstimateId: n.activeEstimateId,
@@ -161,7 +275,10 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
       ui: {
         lineFilter: n.ui?.lineFilter ?? "",
         collapsedLineIds: n.ui?.collapsedLineIds ?? [],
+        onboardingComplete: skipTour ? true : Boolean(n.ui?.onboardingComplete),
       },
+      branding: { ...defaultBranding, ...n.branding },
+      savedLineLibrary: n.savedLineLibrary ?? [],
       hydrated: true,
     });
   },
@@ -222,22 +339,33 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
 
   addLine: () =>
     set((s) => ({
-      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({
-        ...e,
-        lines: [...e.lines, createEmptyLineItem(newId())],
-      })),
+      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => {
+        const sid = defaultSectionId(e);
+        return {
+          ...e,
+          lines: [...e.lines, createEmptyLineItem(newId(), sid)],
+        };
+      }),
     })),
 
   removeLine: (lineId) =>
-    set((s) => ({
-      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => {
-        const lines = e.lines.filter((row) => row.id !== lineId);
-        if (lines.length === 0) {
-          return { ...e, lines: [createEmptyLineItem(newId())] };
-        }
-        return { ...e, lines };
-      }),
-    })),
+    set((s) => {
+      const u = pushUndo(s, "Removed line");
+      return {
+        ...s,
+        ...u,
+        estimates: mapActive(s.estimates, s.activeEstimateId, (e) => {
+          const lines = e.lines.filter((row) => row.id !== lineId);
+          if (lines.length === 0) {
+            return {
+              ...e,
+              lines: [createEmptyLineItem(newId(), defaultSectionId(e))],
+            };
+          }
+          return { ...e, lines };
+        }),
+      };
+    }),
 
   moveLine: (lineId, direction) =>
     set((s) => ({
@@ -282,6 +410,7 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
           quantity: prev.quantity,
           unit: prev.unit,
           unitCost: prev.unitCost,
+          lineType: prev.lineType,
         };
         const lines = e.lines.map((l) => (l.id === lineId ? next : l));
         return { ...e, lines };
@@ -354,7 +483,10 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
   resetCurrentEstimateWorkspace: () =>
     set((s) => {
       const id = s.activeEstimateId;
+      const u = pushUndo(s, "Cleared workspace");
       return {
+        ...s,
+        ...u,
         estimates: s.estimates.map((e) => (e.id === id ? resetEstimateInPlace(e.id) : e)),
         ui: { ...s.ui, collapsedLineIds: [] },
         revisionsByEstimateId: { ...s.revisionsByEstimateId, [id]: [] },
@@ -364,32 +496,38 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
   insertTemplate: (templateId) => {
     const t = LINE_TEMPLATES.find((x) => x.id === templateId);
     if (!t) return;
-    set((s) => ({
-      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({
-        ...e,
-        lines: [...e.lines, ...t.lines.map((row) => ({ ...row, id: newId() }))],
-      })),
-    }));
+    set((s) => {
+      const u = pushUndo(s, `Inserted template · ${t.name}`);
+      return {
+        ...s,
+        ...u,
+        estimates: mapActive(s.estimates, s.activeEstimateId, (e) => {
+          const sid = defaultSectionId(e);
+          const added = t.lines.map((row) => lineFromSeed(row, sid));
+          return { ...e, lines: [...e.lines, ...added] };
+        }),
+      };
+    });
   },
 
   insertAssembly: (assemblyId) => {
     const def = ASSEMBLIES.find((x) => x.id === assemblyId);
     if (!def) return;
     const kitId = newId();
-    set((s) => ({
-      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({
-        ...e,
-        lines: [
-          ...e.lines,
-          ...def.lines.map((row) => ({
-            ...row,
-            id: newId(),
-            kitId,
-            kitName: def.name,
-          })),
-        ],
-      })),
-    }));
+    set((s) => {
+      const u = pushUndo(s, `Inserted assembly · ${def.name}`);
+      return {
+        ...s,
+        ...u,
+        estimates: mapActive(s.estimates, s.activeEstimateId, (e) => {
+          const sid = defaultSectionId(e);
+          const added = def.lines.map((row) =>
+            lineFromSeed(row, sid, { kitId, kitName: def.name }),
+          );
+          return { ...e, lines: [...e.lines, ...added] };
+        }),
+      };
+    });
   },
 
   saveRevisionSnapshot: (note) =>
@@ -415,9 +553,12 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
       const list = s.revisionsByEstimateId[id] ?? [];
       const rev = list.find((r) => r.id === revisionId);
       if (!rev) return s;
+      const u = pushUndo(s, "Before restoring snapshot");
       const restored = normalizeEstimate(rev.payload);
       const merged: Estimate = { ...restored, id };
       return {
+        ...s,
+        ...u,
         estimates: s.estimates.map((e) => (e.id === id ? merged : e)),
       };
     }),
@@ -460,13 +601,151 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
       settings: { ...s.settings, density },
     })),
 
+  setBranding: (patch) =>
+    set((s) => ({
+      branding: { ...s.branding, ...patch },
+    })),
+
+  setOnboardingComplete: (complete) =>
+    set((s) => ({
+      ui: { ...s.ui, onboardingComplete: complete },
+    })),
+
+  addAlternateSection: () =>
+    set((s) => ({
+      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => {
+        const n = e.sections.filter((x) => x.kind === "alternate").length;
+        const id = newId();
+        const label = `Alternate ${String.fromCharCode(65 + n)}`;
+        return { ...e, sections: [...e.sections, { id, label, kind: "alternate" }] };
+      }),
+    })),
+
+  setSectionLabel: (sectionId, label) =>
+    set((s) => ({
+      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({
+        ...e,
+        sections: e.sections.map((sec) => (sec.id === sectionId ? { ...sec, label } : sec)),
+      })),
+    })),
+
+  removeSection: (sectionId) =>
+    set((s) => ({
+      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => {
+        if (e.sections.length <= 1) return e;
+        const primary = e.sections[0].id;
+        if (sectionId === primary) return e;
+        if (!e.sections.some((x) => x.id === sectionId)) return e;
+        return {
+          ...e,
+          lines: e.lines.map((l) => (l.sectionId === sectionId ? { ...l, sectionId: primary } : l)),
+          sections: e.sections.filter((sec) => sec.id !== sectionId),
+        };
+      }),
+    })),
+
+  saveLineToLibrary: (lineId, name) =>
+    set((s) => {
+      const e = getActive(s.estimates, s.activeEstimateId);
+      const row = e.lines.find((l) => l.id === lineId);
+      if (!row) return s;
+      const item: SavedLineTemplate = {
+        id: newId(),
+        name: name.trim() || row.description.trim() || "Saved line",
+        description: row.description,
+        category: row.category,
+        quantity: row.quantity,
+        unit: row.unit,
+        unitCost: row.unitCost,
+        lineType: row.lineType,
+      };
+      return {
+        savedLineLibrary: [item, ...s.savedLineLibrary].slice(0, 800),
+      };
+    }),
+
+  removeSavedLibraryItem: (templateId) =>
+    set((s) => ({
+      savedLineLibrary: s.savedLineLibrary.filter((x) => x.id !== templateId),
+    })),
+
+  insertSavedLibraryItem: (templateId) => {
+    set((s) => {
+      const seedRow = s.savedLineLibrary.find((x) => x.id === templateId);
+      if (!seedRow) return s;
+      const u = pushUndo(s, `From library · ${seedRow.name}`);
+      return {
+        ...s,
+        ...u,
+        estimates: mapActive(s.estimates, s.activeEstimateId, (e) => {
+          const sid = defaultSectionId(e);
+          const line = lineFromSeed(
+            {
+              description: seedRow.description,
+              category: seedRow.category,
+              quantity: seedRow.quantity,
+              unit: seedRow.unit,
+              unitCost: seedRow.unitCost,
+              lineType: seedRow.lineType,
+            },
+            sid,
+          );
+          return { ...e, lines: [...e.lines, line] };
+        }),
+      };
+    });
+  },
+
+  pushActiveUndo: (label) => set((s) => ({ ...s, ...pushUndo(s, label) })),
+
+  undoLast: () =>
+    set((s) => {
+      const entry = s.undoStack[0];
+      if (!entry) return s;
+      const id = activeIdOf(s);
+      let restored: Estimate;
+      try {
+        restored = normalizeEstimate(JSON.parse(entry.snapshot) as unknown);
+      } catch {
+        return { ...s, undoStack: s.undoStack.slice(1) };
+      }
+      const merged: Estimate = { ...restored, id };
+      return {
+        estimates: s.estimates.map((e) => (e.id === id ? merged : e)),
+        undoStack: s.undoStack.slice(1),
+      };
+    }),
+
+  importCsvText: (text) => {
+    const parsed = parseEstimateCsv(text);
+    if (parsed.lines.length === 0) {
+      return { ok: false, error: parsed.errors[0] ?? "Nothing to import." };
+    }
+    const imported = parsed.lines.length;
+    set((s) => {
+      const u = pushUndo(s, "Imported CSV lines");
+      return {
+        ...s,
+        ...u,
+        estimates: mapActive(s.estimates, s.activeEstimateId, (e) => {
+          const newLines: LineItem[] = parsed.lines.map((seed) => {
+            const sid = resolveSectionFromHint(e, seed.sectionLabelHint);
+            return lineFromSeed(seed, sid);
+          });
+          return { ...e, lines: [...e.lines, ...newLines] };
+        }),
+      };
+    });
+    return { ok: true, imported };
+  },
+
   importPersistJson: (json) => {
     try {
       const data = JSON.parse(json) as unknown;
       if (!data || typeof data !== "object") return { ok: false, error: "Invalid JSON." };
-      const obj = data as AppPersist;
-      if (obj.version !== APP_SCHEMA_VERSION || !Array.isArray(obj.estimates)) {
-        return { ok: false, error: "Unrecognized backup format (expected app v2)." };
+      const obj = data as AppPersist & { version?: number };
+      if ((obj.version !== 2 && obj.version !== 3) || !Array.isArray(obj.estimates)) {
+        return { ok: false, error: "Unrecognized backup format (expected app v2 or v3)." };
       }
       const normalized = normalizeAppPersist(obj);
       set({
@@ -477,7 +756,11 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
         ui: {
           lineFilter: normalized.ui?.lineFilter ?? "",
           collapsedLineIds: normalized.ui?.collapsedLineIds ?? [],
+          onboardingComplete: Boolean(normalized.ui?.onboardingComplete),
         },
+        branding: { ...defaultBranding, ...normalized.branding },
+        savedLineLibrary: normalized.savedLineLibrary ?? [],
+        undoStack: [],
         hydrated: true,
         saveStatus: "saved",
         saveErrorMessage: null,
@@ -504,6 +787,9 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
       revisionsByEstimateId: p.revisionsByEstimateId ?? {},
       settings: p.settings,
       ui: { ...defaultUiState },
+      branding: p.branding ? { ...defaultBranding, ...p.branding } : { ...defaultBranding },
+      savedLineLibrary: p.savedLineLibrary ?? [],
+      undoStack: [],
       saveStatus: "idle",
       saveErrorMessage: null,
       hydrated: true,

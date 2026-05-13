@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { createDefaultAppPersist } from "@/lib/persistence";
+import { defaultBranding, defaultUiState } from "@/lib/appTypes";
 import { useProBuildStore } from "@/store/proBuildStore";
 
 describe("useProBuildStore", () => {
@@ -11,7 +12,10 @@ describe("useProBuildStore", () => {
       activeEstimateId: seed.activeEstimateId,
       revisionsByEstimateId: seed.revisionsByEstimateId ?? {},
       settings: seed.settings,
-      ui: { lineFilter: "", collapsedLineIds: [] },
+      ui: { ...defaultUiState },
+      branding: seed.branding ? { ...defaultBranding, ...seed.branding } : { ...defaultBranding },
+      savedLineLibrary: seed.savedLineLibrary ?? [],
+      undoStack: [],
       saveStatus: "idle",
       saveErrorMessage: null,
       hydrated: true,
@@ -23,5 +27,12 @@ describe("useProBuildStore", () => {
     useProBuildStore.getState().addLine();
     const after = useProBuildStore.getState().estimates[0].lines.length;
     expect(after).toBe(before + 1);
+  });
+
+  it("setOnboardingComplete updates ui flag", () => {
+    useProBuildStore.getState().setOnboardingComplete(false);
+    expect(useProBuildStore.getState().ui.onboardingComplete).toBe(false);
+    useProBuildStore.getState().setOnboardingComplete(true);
+    expect(useProBuildStore.getState().ui.onboardingComplete).toBe(true);
   });
 });

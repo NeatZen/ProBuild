@@ -15,6 +15,8 @@ function line(partial: Partial<LineItem> & Pick<LineItem, "id">): LineItem {
     quantity: 1,
     unit: "ea",
     unitCost: 0,
+    lineType: "other",
+    sectionId: "sec-test",
     ...partial,
   };
 }

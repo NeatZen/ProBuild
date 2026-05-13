@@ -2,14 +2,23 @@
 
 import { useRef } from "react";
 
-import type { LineItem } from "@/lib/estimateTypes";
+import type { LineItem, LineType } from "@/lib/estimateTypes";
 import { lineExtended } from "@/lib/estimateMath";
 import { cardSurfaceElevated, inputClass, labelClass } from "@/lib/uiTokens";
 import { useDensityClasses } from "@/hooks/useDensityClasses";
 import { useMoneyFormatter } from "@/hooks/useMoneyFormatter";
-import { useProBuildStore } from "@/store/proBuildStore";
+import { selectActiveEstimate, useProBuildStore } from "@/store/proBuildStore";
 
 const CATEGORY_SUGGESTIONS = ["Labor", "Materials", "Subcontractor", "Equipment", "Other"];
+
+const LINE_TYPE_OPTIONS: { value: LineType; label: string }[] = [
+  { value: "labor", label: "Labor" },
+  { value: "material", label: "Material" },
+  { value: "allowance", label: "Allowance" },
+  { value: "subcontractor", label: "Subcontractor" },
+  { value: "equipment", label: "Equipment" },
+  { value: "other", label: "Other" },
+];
 
 function ChevronUp({ className }: { className?: string }) {
   return (
@@ -60,8 +69,10 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
   const moveLine = useProBuildStore((s) => s.moveLine);
   const duplicateLine = useProBuildStore((s) => s.duplicateLine);
   const copyLineFromPrevious = useProBuildStore((s) => s.copyLineFromPrevious);
+  const saveLineToLibrary = useProBuildStore((s) => s.saveLineToLibrary);
   const collapsed = useProBuildStore((s) => s.ui.collapsedLineIds.includes(line.id));
   const toggleLineCollapsed = useProBuildStore((s) => s.toggleLineCollapsed);
+  const sections = useProBuildStore((s) => selectActiveEstimate(s).sections);
 
   const d = useDensityClasses();
 
@@ -116,6 +127,9 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
         const end = e.changedTouches[0]?.clientX;
         if (end == null) return;
         if (end - start < -88) {
+          if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+            navigator.vibrate(12);
+          }
           if (window.confirm("Remove this line?")) removeLine(line.id);
         }
       }}
@@ -137,6 +151,17 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-stone-200/80 bg-white/70 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700 shadow-sm hover:bg-stone-50"
           >
             Collapse
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const name = window.prompt("Save to library — name?", line.description.trim() || "Line");
+              if (name === null) return;
+              saveLineToLibrary(line.id, name);
+            }}
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-stone-200/80 bg-white/70 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700 shadow-sm hover:bg-stone-50"
+          >
+            Library
           </button>
           <button
             type="button"
@@ -213,6 +238,44 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
               <option key={c} value={c} />
             ))}
           </datalist>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className={labelClass} htmlFor={`lt-${line.id}`}>
+              Line type
+            </label>
+            <select
+              id={`lt-${line.id}`}
+              value={line.lineType}
+              onChange={(e) => setLine(line.id, { lineType: e.target.value as LineType })}
+              className={`${inputClass} ${d.formFieldMinH}`}
+            >
+              {LINE_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass} htmlFor={`sec-${line.id}`}>
+              Section / alternate
+            </label>
+            <select
+              id={`sec-${line.id}`}
+              value={line.sectionId}
+              onChange={(e) => setLine(line.id, { sectionId: e.target.value })}
+              className={`${inputClass} ${d.formFieldMinH}`}
+            >
+              {sections.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.kind === "alternate" ? "↳ " : ""}
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

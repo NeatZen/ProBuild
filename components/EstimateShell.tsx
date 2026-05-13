@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 
 import { validateEstimate } from "@/lib/estimateValidation";
 import { defaultCsvFilename, estimateToCsv } from "@/lib/csvExport";
@@ -14,23 +15,39 @@ import {
 } from "@/store/proBuildStore";
 
 import { AppFooterNotes } from "./AppFooterNotes";
+import { BrandingBar } from "./BrandingBar";
 import { EmptyEstimateTips } from "./EmptyEstimateTips";
 import { EstimateHeader } from "./EstimateHeader";
 import { EstimateToolbar } from "./EstimateToolbar";
 import { EstimatesShelf } from "./EstimatesShelf";
 import { LineItemRow } from "./LineItemRow";
-import { RevisionHistory } from "./RevisionHistory";
+import { LineLibraryPanel } from "./LineLibraryPanel";
+import { OnboardingModal } from "./OnboardingModal";
+import { PanelErrorBoundary } from "./PanelErrorBoundary";
 import { SaveStatusBadge } from "./SaveStatusBadge";
-import { TotalsPanel } from "./TotalsPanel";
+import { ShortcutsModal } from "./ShortcutsModal";
+import { StorageQuotaBanner } from "./StorageQuotaBanner";
 import { ValidationBanner } from "./ValidationBanner";
+import { UndoToast } from "./UndoToast";
 import { WorkspaceDataMenu } from "./WorkspaceDataMenu";
 import { LineSearchBar } from "./LineSearchBar";
 
 import { useDensityClasses } from "@/hooks/useDensityClasses";
-import { displayHeadingClass } from "@/lib/uiTokens";
+import { displayHeadingClass, inputClass } from "@/lib/uiTokens";
+
+const RevisionHistoryLazy = dynamic(
+  () => import("./RevisionHistory").then((m) => ({ default: m.RevisionHistory })),
+  { ssr: false, loading: () => <p className="text-sm text-stone-500">Loading history…</p> },
+);
+
+const TotalsPanelLazy = dynamic(
+  () => import("./TotalsPanel").then((m) => ({ default: m.TotalsPanel })),
+  { ssr: false },
+);
 
 export function EstimateShell() {
   const didHydrate = useRef(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useLayoutEffect(() => {
     if (didHydrate.current) return;
@@ -40,10 +57,13 @@ export function EstimateShell() {
 
   const estimate = useProBuildStore(selectActiveEstimate);
   const lineFilter = useProBuildStore((s) => s.ui.lineFilter);
+  const hydrated = useProBuildStore((s) => s.hydrated);
   const d = useDensityClasses();
   const addLine = useProBuildStore((s) => s.addLine);
   const resetCurrentEstimateWorkspace = useProBuildStore((s) => s.resetCurrentEstimateWorkspace);
   const setLineFilter = useProBuildStore((s) => s.setLineFilter);
+  const setSectionLabel = useProBuildStore((s) => s.setSectionLabel);
+  const removeSection = useProBuildStore((s) => s.removeSection);
   useEffect(() => {
     const save = debounce(() => {
       const state = useProBuildStore.getState();
@@ -98,6 +118,13 @@ export function EstimateShell() {
       if (e.key === "Escape") {
         setLineFilter("");
       }
+      if (e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const el = e.target as HTMLElement | null;
+        const tag = el?.tagName ?? "";
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+        e.preventDefault();
+        setShortcutsOpen(true);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -119,6 +146,14 @@ export function EstimateShell() {
     window.print();
   };
 
+  const handleExportPdf = () => {
+    const base = estimate.projectName.trim() || "Estimate";
+    const prev = document.title;
+    document.title = `${base} · ProBuild`;
+    window.print();
+    document.title = prev;
+  };
+
   return (
     <div className="print-root relative flex min-h-0 flex-1 flex-col overflow-x-hidden text-stone-900">
       <a href="#totals-panel-start" className="skip-link">
@@ -133,7 +168,7 @@ export function EstimateShell() {
       <header
         className={`print-hide relative border-b border-stone-200 bg-white px-4 shadow-sm shadow-stone-900/[0.04] ${d.headerShellPy}`}
       >
-        <div className={`mx-auto flex max-w-3xl flex-col sm:flex-row sm:items-start sm:justify-between ${d.headerShellGap}`}>
+        <nav aria-label="Workspace" className={`mx-auto flex max-w-3xl flex-col sm:flex-row sm:items-start sm:justify-between ${d.headerShellGap}`}>
           <div className="flex min-w-0 flex-1 items-start gap-4 sm:gap-5">
             <div
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-teal-700 text-xs font-bold tracking-tight text-white shadow-sm sm:h-12 sm:w-12 sm:text-sm"
@@ -150,6 +185,7 @@ export function EstimateShell() {
                 <p className="hidden text-[11px] font-medium text-stone-400 sm:inline">Estimate workspace</p>
               </div>
               <h1
+                data-testid="page-title"
                 className={`${displayHeadingClass} mt-1.5 text-balance text-2xl sm:text-[1.625rem] sm:leading-snug`}
               >
                 Construction estimate
@@ -166,22 +202,29 @@ export function EstimateShell() {
               <WorkspaceDataMenu onExportCsv={handleExportCsv} />
             </div>
           </div>
-        </div>
+        </nav>
       </header>
 
       <div
         className={`relative mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 ${d.shellMainPt} ${d.shellMainPb}`}
       >
+        <StorageQuotaBanner />
         <ValidationBanner warnings={validateEstimate(estimate)} />
-        <RevisionHistory />
+        <RevisionHistoryLazy />
         <EstimateHeader />
-        <LineSearchBar matchCount={matchCount} totalLines={estimate.lines.length} />
-        <EstimateToolbar
-          onAddLine={addLine}
-          onExportCsv={handleExportCsv}
-          onPrint={handlePrint}
-          onClear={handleClear}
-        />
+        <BrandingBar />
+        <nav aria-label="Tools" className="flex flex-col gap-3">
+          <LineSearchBar matchCount={matchCount} totalLines={estimate.lines.length} />
+          <EstimateToolbar
+            onAddLine={addLine}
+            onExportCsv={handleExportCsv}
+            onPrint={handlePrint}
+            onExportPdf={handleExportPdf}
+            onClear={handleClear}
+          />
+        </nav>
+
+        <LineLibraryPanel />
 
         <EmptyEstimateTips estimate={estimate} />
 
@@ -194,7 +237,7 @@ export function EstimateShell() {
               <p className="text-xs text-stone-500">
                 {query
                   ? `${matchCount} match${matchCount === 1 ? "" : "es"} — non-matching rows are dimmed.`
-                  : "Tap fields to edit. Use arrows to reorder."}
+                  : "Group lines under base bid or alternates. Use arrows to reorder."}
               </p>
             </div>
             <span
@@ -205,24 +248,76 @@ export function EstimateShell() {
             </span>
           </div>
 
-          <section aria-label="Line items" className={`flex flex-col ${d.lineStackGap}`}>
-            {estimate.lines.map((line, index) => (
-              <LineItemRow
-                key={line.id}
-                line={line}
-                index={index}
-                totalLines={estimate.lines.length}
-                searchMatch={lineMatches(line)}
-                searchActive={Boolean(query)}
-              />
-            ))}
-          </section>
+          <PanelErrorBoundary label="Line items">
+            <section aria-label="Line items" className={`flex flex-col ${d.lineStackGap}`}>
+              {estimate.sections.map((sec) => {
+                const rows = estimate.lines.filter((l) => l.sectionId === sec.id);
+                const anyMatch = rows.some(lineMatches);
+                if (query && !anyMatch) return null;
+                return (
+                  <div key={sec.id} className="space-y-2">
+                    <div className="flex flex-wrap items-end gap-2 border-b border-stone-100 pb-2">
+                      <div className="min-w-0 flex-1 sm:flex-none">
+                        <label className="sr-only" htmlFor={`sec-${sec.id}`}>
+                          Section name
+                        </label>
+                        <input
+                          id={`sec-${sec.id}`}
+                          value={sec.label}
+                          onChange={(e) => setSectionLabel(sec.id, e.target.value)}
+                          className={`${inputClass} w-full max-w-md py-1.5 text-sm font-heading font-semibold sm:w-auto`}
+                        />
+                      </div>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-stone-400">
+                        {sec.kind === "base" ? "Base bid" : "Alternate"}
+                      </span>
+                      {sec.kind === "alternate" ? (
+                        <button
+                          type="button"
+                          className="text-xs font-semibold text-rose-800 hover:underline"
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                "Remove this alternate? Lines move into the base section.",
+                              )
+                            ) {
+                              removeSection(sec.id);
+                            }
+                          }}
+                        >
+                          Remove scope
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className={`flex flex-col ${d.lineStackGap}`}>
+                      {rows.map((line) => (
+                        <LineItemRow
+                          key={line.id}
+                          line={line}
+                          index={estimate.lines.findIndex((l) => l.id === line.id)}
+                          totalLines={estimate.lines.length}
+                          searchMatch={lineMatches(line)}
+                          searchActive={Boolean(query)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </section>
+          </PanelErrorBoundary>
         </div>
 
         <AppFooterNotes />
       </div>
 
-      <TotalsPanel />
+      <PanelErrorBoundary label="Totals">
+        <TotalsPanelLazy />
+      </PanelErrorBoundary>
+
+      {hydrated ? <OnboardingModal /> : null}
+      <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <UndoToast />
     </div>
   );
 }

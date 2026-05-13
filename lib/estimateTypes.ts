@@ -1,9 +1,35 @@
-export const ESTIMATE_SCHEMA_VERSION = 2 as const;
+export const ESTIMATE_SCHEMA_VERSION = 3 as const;
 
 export type CategoryMarkup = {
   category: string;
   percent: number;
 };
+
+/** For grouping base bid vs alternates; subtotals per section in UI. */
+export type EstimateSection = {
+  id: string;
+  label: string;
+  /** Base scope vs optional alternate scope */
+  kind: "base" | "alternate";
+};
+
+export type LineType =
+  | "labor"
+  | "material"
+  | "allowance"
+  | "subcontractor"
+  | "equipment"
+  | "other";
+
+export function inferLineTypeFromCategory(category: string): LineType {
+  const c = category.trim().toLowerCase();
+  if (c.includes("labor")) return "labor";
+  if (c.includes("material")) return "material";
+  if (c.includes("allow")) return "allowance";
+  if (c.includes("subcontract")) return "subcontractor";
+  if (c.includes("equipment") || c.includes("equip") || c.includes("rental")) return "equipment";
+  return "other";
+}
 
 export type LineItem = {
   id: string;
@@ -15,6 +41,10 @@ export type LineItem = {
   /** When set, this line was created from an assembly/kit with siblings sharing the same id. */
   kitId?: string;
   kitName?: string;
+  /** Labor / material / allowance — used for grouping and reporting. */
+  lineType: LineType;
+  /** Phase or alternate bucket; must match an entry in estimate.sections. */
+  sectionId: string;
 };
 
 export type Estimate = {
@@ -33,10 +63,12 @@ export type Estimate = {
   retentionPercent: number;
   /** Per trimmed category name: % uplift on that category's raw subtotal before global markup. */
   categoryMarkups: CategoryMarkup[];
+  /** Bid phases: base bid and optional alternates. */
+  sections: EstimateSection[];
   lines: LineItem[];
 };
 
-export function createEmptyLineItem(id: string): LineItem {
+export function createEmptyLineItem(id: string, sectionId: string): LineItem {
   return {
     id,
     description: "",
@@ -44,6 +76,8 @@ export function createEmptyLineItem(id: string): LineItem {
     quantity: 1,
     unit: "ea",
     unitCost: 0,
+    lineType: "other",
+    sectionId,
   };
 }
 
@@ -56,6 +90,10 @@ export function createDefaultEstimate(): Estimate {
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `line-${Date.now()}`;
+  const sectionId =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `sec-${Date.now()}`;
   return {
     version: ESTIMATE_SCHEMA_VERSION,
     id,
@@ -67,7 +105,8 @@ export function createDefaultEstimate(): Estimate {
     bondInsuranceFlat: 0,
     retentionPercent: 0,
     categoryMarkups: [],
-    lines: [createEmptyLineItem(lineId)],
+    sections: [{ id: sectionId, label: "Base bid", kind: "base" }],
+    lines: [createEmptyLineItem(lineId, sectionId)],
   };
 }
 
@@ -77,6 +116,10 @@ export function resetEstimateInPlace(estimateId: string): Estimate {
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `line-${Date.now()}`;
+  const sectionId =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `sec-${Date.now()}`;
   return {
     version: ESTIMATE_SCHEMA_VERSION,
     id: estimateId,
@@ -88,6 +131,7 @@ export function resetEstimateInPlace(estimateId: string): Estimate {
     bondInsuranceFlat: 0,
     retentionPercent: 0,
     categoryMarkups: [],
-    lines: [createEmptyLineItem(lineId)],
+    sections: [{ id: sectionId, label: "Base bid", kind: "base" }],
+    lines: [createEmptyLineItem(lineId, sectionId)],
   };
 }

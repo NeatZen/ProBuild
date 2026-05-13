@@ -10,6 +10,8 @@ type Props = {
   onAddLine: () => void;
   onExportCsv: () => void;
   onPrint: () => void;
+  /** Save as PDF (print-to-PDF); defaults to onPrint when omitted */
+  onExportPdf?: () => void;
   onClear: () => void;
 };
 
@@ -44,10 +46,12 @@ function IconPrint({ className }: { className?: string }) {
 const ghostBtn =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3.5 text-sm font-medium text-stone-800 shadow-sm transition hover:border-stone-300 hover:bg-stone-50 active:bg-stone-100/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600/35";
 
-export function EstimateToolbar({ onAddLine, onExportCsv, onPrint, onClear }: Props) {
+export function EstimateToolbar({ onAddLine, onExportCsv, onPrint, onExportPdf, onClear }: Props) {
   const insertTemplate = useProBuildStore((s) => s.insertTemplate);
   const insertAssembly = useProBuildStore((s) => s.insertAssembly);
+  const addAlternateSection = useProBuildStore((s) => s.addAlternateSection);
   const d = useDensityClasses();
+  const exportPdf = onExportPdf ?? onPrint;
 
   return (
     <div className={`print-hide flex flex-col ${d.toolbarMt} gap-3`}>
@@ -62,6 +66,15 @@ export function EstimateToolbar({ onAddLine, onExportCsv, onPrint, onClear }: Pr
             +
           </span>
           Add line item
+        </button>
+
+        <button
+          type="button"
+          data-testid="add-alternate-section"
+          onClick={() => addAlternateSection()}
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-4 text-sm font-semibold text-violet-950 shadow-sm transition hover:bg-violet-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600/40"
+        >
+          Add alternate scope
         </button>
 
         <div className={`flex flex-wrap gap-2 sm:flex-1 sm:justify-end sm:gap-1.5 ${toolbarWellFrame} ${d.toolbarWellPad}`}>
@@ -108,6 +121,14 @@ export function EstimateToolbar({ onAddLine, onExportCsv, onPrint, onClear }: Pr
           <button type="button" onClick={onExportCsv} className={`${ghostBtn} flex-1 sm:flex-none`}>
             <IconTable className="h-4 w-4 text-teal-700" />
             CSV
+          </button>
+          <button
+            type="button"
+            data-testid="export-pdf"
+            onClick={exportPdf}
+            className={`${ghostBtn} flex-1 sm:flex-none`}
+          >
+            PDF
           </button>
           <button type="button" onClick={onPrint} className={`${ghostBtn} flex-1 sm:flex-none`}>
             <IconPrint className="h-4 w-4 text-teal-700" />

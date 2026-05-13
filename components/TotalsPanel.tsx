@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 
-import { estimateTotals } from "@/lib/estimateMath";
+import { estimateTotals, sectionSubtotals } from "@/lib/estimateMath";
 import { useMoneyFormatter } from "@/hooks/useMoneyFormatter";
 import type { CategoryMarkup } from "@/lib/estimateTypes";
 import { selectActiveEstimate, useProBuildStore } from "@/store/proBuildStore";
@@ -23,6 +23,7 @@ export function TotalsPanel() {
   const formatMoney = useMoneyFormatter();
 
   const totals = estimateTotals(estimate);
+  const sectionRows = sectionSubtotals(estimate);
   const totalsKey = useMemo(
     () =>
       [
@@ -85,6 +86,22 @@ export function TotalsPanel() {
                 </p>
               </div>
             </div>
+
+            {estimate.sections.length > 1 ? (
+              <div className="mt-3 rounded-lg border border-stone-200 bg-stone-50/90 px-3 py-2.5 text-xs">
+                <p className="font-heading text-[11px] font-semibold uppercase tracking-wide text-stone-600">
+                  By section (raw extensions)
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {sectionRows.map((r) => (
+                    <li key={r.sectionId} className="flex justify-between gap-3 text-stone-800">
+                      <span className="min-w-0 truncate">{r.label}</span>
+                      <span className="shrink-0 font-mono tabular-nums text-stone-900">{formatMoney(r.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             <div className="mt-2 grid grid-cols-2 gap-2 sm:mt-4 sm:gap-4">
               <div>

@@ -1,6 +1,9 @@
-import type { LineItem } from "./estimateTypes";
+import type { LineItem, LineType } from "./estimateTypes";
 
-export type AssemblyLineSeed = Omit<LineItem, "id" | "kitId" | "kitName">;
+export type AssemblyLineSeed = Pick<
+  LineItem,
+  "description" | "category" | "quantity" | "unit" | "unitCost"
+> & { lineType?: LineType };
 
 export type AssemblyDefinition = {
   id: string;

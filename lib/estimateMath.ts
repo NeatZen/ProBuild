@@ -1,4 +1,4 @@
-import type { CategoryMarkup, Estimate, LineItem } from "./estimateTypes";
+import type { CategoryMarkup, Estimate, EstimateSection, LineItem } from "./estimateTypes";
 
 /** Two-decimal currency rounding (half away from zero at .005). */
 export function roundMoney(value: number): number {
@@ -138,4 +138,26 @@ export function estimateTotals(
     estimate.retentionPercent ?? 0,
     estimate.categoryMarkups ?? [],
   );
+}
+
+export type SectionSubtotal = {
+  sectionId: string;
+  label: string;
+  kind: EstimateSection["kind"];
+  amount: number;
+};
+
+/** Raw extension sum per bid section (base vs alternates) before markups/tax. */
+export function sectionSubtotals(estimate: Pick<Estimate, "sections" | "lines">): SectionSubtotal[] {
+  const bySection = new Map<string, number>();
+  for (const line of estimate.lines) {
+    const ext = lineExtended(line);
+    bySection.set(line.sectionId, roundMoney((bySection.get(line.sectionId) ?? 0) + ext));
+  }
+  return estimate.sections.map((s) => ({
+    sectionId: s.id,
+    label: s.label,
+    kind: s.kind,
+    amount: bySection.get(s.id) ?? 0,
+  }));
 }
