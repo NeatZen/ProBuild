@@ -89,7 +89,7 @@ export function EstimateApp() {
         </div>
       </header>
 
-      <div className="relative mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-44 pt-6 sm:pb-40">
+      <div className="relative mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-[calc(min(42vh,20rem)+env(safe-area-inset-bottom,0px)+1rem)] pt-6 sm:pb-12">
         <EstimateHeader />
         <EstimateToolbar
           onAddLine={addLine}
