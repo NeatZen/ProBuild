@@ -1,4 +1,9 @@
-export const ESTIMATE_SCHEMA_VERSION = 1 as const;
+export const ESTIMATE_SCHEMA_VERSION = 2 as const;
+
+export type CategoryMarkup = {
+  category: string;
+  percent: number;
+};
 
 export type LineItem = {
   id: string;
@@ -7,15 +12,27 @@ export type LineItem = {
   quantity: number;
   unit: string;
   unitCost: number;
+  /** When set, this line was created from an assembly/kit with siblings sharing the same id. */
+  kitId?: string;
+  kitName?: string;
 };
 
 export type Estimate = {
-  version: typeof ESTIMATE_SCHEMA_VERSION;
+  version: number;
   id: string;
   projectName: string;
   clientNotes: string;
+  /** Global markup applied after optional per-category markups. */
   markupPercent: number;
   taxPercent: number;
+  /** Overhead % applied after global markup (on subtotal + markup). */
+  overheadPercent: number;
+  /** Flat bond/insurance add-on before tax. */
+  bondInsuranceFlat: number;
+  /** Retention % of grand total (including tax); shown as a hold against net due. */
+  retentionPercent: number;
+  /** Per trimmed category name: % uplift on that category's raw subtotal before global markup. */
+  categoryMarkups: CategoryMarkup[];
   lines: LineItem[];
 };
 
@@ -46,6 +63,10 @@ export function createDefaultEstimate(): Estimate {
     clientNotes: "",
     markupPercent: 0,
     taxPercent: 0,
+    overheadPercent: 0,
+    bondInsuranceFlat: 0,
+    retentionPercent: 0,
+    categoryMarkups: [],
     lines: [createEmptyLineItem(lineId)],
   };
 }
@@ -63,6 +84,10 @@ export function resetEstimateInPlace(estimateId: string): Estimate {
     clientNotes: "",
     markupPercent: 0,
     taxPercent: 0,
+    overheadPercent: 0,
+    bondInsuranceFlat: 0,
+    retentionPercent: 0,
+    categoryMarkups: [],
     lines: [createEmptyLineItem(lineId)],
   };
 }

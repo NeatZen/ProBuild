@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Mobile-friendly line-item construction estimating",
     start_url: "/",
     display: "standalone",
-    background_color: "#f4f4f5",
-    theme_color: "#0f766e",
+    background_color: "#f8fafc",
+    theme_color: "#0d9488",
     icons: [
       {
         src: "/favicon.ico",

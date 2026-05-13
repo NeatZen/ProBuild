@@ -11,7 +11,7 @@ export function SaveStatusBadge() {
   }
 
   const base =
-    "inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide";
+    "inline-flex max-w-full items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium";
 
   if (saveStatus === "pending") {
     return (

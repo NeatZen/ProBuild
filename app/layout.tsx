@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Outfit } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,6 +12,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const outfit = Outfit({
+  variable: "--font-display",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+});
+
 export const metadata: Metadata = {
   title: "ProBuild — Construction estimate",
   description: "Mobile-friendly line-item construction estimating",
@@ -21,7 +27,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#f4f4f5",
+  themeColor: "#f8fafc",
 };
 
 export default function RootLayout({
@@ -32,9 +38,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} h-full scroll-smooth antialiased`}
     >
-      <body className="flex min-h-full min-h-dvh flex-col font-sans text-stone-900">
+      <body className="flex min-h-full min-h-dvh flex-col bg-[var(--background)] font-sans text-stone-900 antialiased">
         {children}
       </body>
     </html>

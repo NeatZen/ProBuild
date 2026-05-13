@@ -1,7 +1,13 @@
-import type { AppPersist, AppSettings } from "./appTypes";
-import { APP_SCHEMA_VERSION, defaultSettings, defaultUiState, type CurrencyCode } from "./appTypes";
-import type { Estimate } from "./estimateTypes";
-import { ESTIMATE_SCHEMA_VERSION, createDefaultEstimate } from "./estimateTypes";
+import type { AppPersist, AppSettings, EstimateRevision } from "./appTypes";
+import {
+  APP_SCHEMA_VERSION,
+  defaultSettings,
+  defaultUiState,
+  type CurrencyCode,
+  type DensityMode,
+} from "./appTypes";
+import { normalizeEstimate } from "./estimateNormalize";
+import { createDefaultEstimate, type Estimate } from "./estimateTypes";
 
 export const LEGACY_STORAGE_KEY = "probuild-estimate-v1";
 export const APP_STORAGE_KEY = "probuild-app-v2";
@@ -18,12 +24,37 @@ export function parseStoredEstimate(raw: string | null): Estimate | null {
     const data = JSON.parse(raw) as unknown;
     if (!data || typeof data !== "object") return null;
     const obj = data as Record<string, unknown>;
-    if (obj.version !== ESTIMATE_SCHEMA_VERSION) return null;
     if (typeof obj.id !== "string" || !Array.isArray(obj.lines)) return null;
-    return data as Estimate;
+    return normalizeEstimate(data);
   } catch {
     return null;
   }
+}
+
+function normalizeRevisionsMap(raw: unknown): Record<string, EstimateRevision[]> {
+  if (!raw || typeof raw !== "object") return {};
+  const src = raw as Record<string, unknown>;
+  const out: Record<string, EstimateRevision[]> = {};
+  for (const [estimateId, list] of Object.entries(src)) {
+    if (typeof estimateId !== "string" || !estimateId) continue;
+    if (!Array.isArray(list)) continue;
+    const revs: EstimateRevision[] = [];
+    for (const item of list) {
+      if (!item || typeof item !== "object") continue;
+      const o = item as Record<string, unknown>;
+      if (typeof o.id !== "string" || typeof o.createdAt !== "string") continue;
+      const note = typeof o.note === "string" ? o.note : "";
+      const rawPayload = o.payload ?? o.estimate;
+      revs.push({
+        id: o.id,
+        createdAt: o.createdAt,
+        note,
+        payload: normalizeEstimate(rawPayload),
+      });
+    }
+    out[estimateId] = revs.slice(0, 40);
+  }
+  return out;
 }
 
 function parseAppPersist(raw: string | null): AppPersist | null {
@@ -47,10 +78,11 @@ export function migrateLegacyIfNeeded(): void {
   if (!legacy) return;
   const persist: AppPersist = {
     version: APP_SCHEMA_VERSION,
-    estimates: [legacy],
+    estimates: [normalizeEstimate(legacy)],
     activeEstimateId: legacy.id,
     settings: { ...defaultSettings },
     ui: { ...defaultUiState },
+    revisionsByEstimateId: {},
   };
   try {
     window.localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(persist));
@@ -60,17 +92,20 @@ export function migrateLegacyIfNeeded(): void {
 }
 
 export function normalizeAppPersist(input: AppPersist): AppPersist {
-  const estimates = input.estimates.filter(
-    (e) => e && typeof e === "object" && Array.isArray(e.lines),
-  ) as Estimate[];
+  const estimates = input.estimates
+    .filter((e) => e && typeof e === "object" && Array.isArray((e as Estimate).lines))
+    .map((e) => normalizeEstimate(e));
   if (estimates.length === 0) {
     const e = createDefaultEstimate();
+    const settings: AppSettings = { ...defaultSettings, ...input.settings };
+    settings.density = settings.density === "compact" ? "compact" : "comfortable";
     return {
       version: APP_SCHEMA_VERSION,
       estimates: [e],
       activeEstimateId: e.id,
-      settings: { ...defaultSettings, ...input.settings },
+      settings,
       ui: { ...defaultUiState, ...input.ui },
+      revisionsByEstimateId: normalizeRevisionsMap(input.revisionsByEstimateId),
     };
   }
   const activeOk = estimates.some((e) => e.id === input.activeEstimateId);
@@ -83,6 +118,8 @@ export function normalizeAppPersist(input: AppPersist): AppPersist {
   if (!allowed.includes(settings.currency)) {
     settings.currency = "USD";
   }
+  const density: DensityMode = settings.density === "compact" ? "compact" : "comfortable";
+  settings.density = density;
   return {
     version: APP_SCHEMA_VERSION,
     estimates,
@@ -94,6 +131,7 @@ export function normalizeAppPersist(input: AppPersist): AppPersist {
         ? input.ui.collapsedLineIds
         : [],
     },
+    revisionsByEstimateId: normalizeRevisionsMap(input.revisionsByEstimateId),
   };
 }
 
@@ -105,6 +143,7 @@ export function createDefaultAppPersist(): AppPersist {
     activeEstimateId: e.id,
     settings: { ...defaultSettings },
     ui: { ...defaultUiState },
+    revisionsByEstimateId: {},
   };
 }
 
