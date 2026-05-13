@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f5f4;
+  --background: #f4f4f5;
   --foreground: #1c1917;
-  --pb-accent: #0d9488;
-  --pb-accent-muted: rgba(13, 148, 136, 0.12);
+  --pb-accent: #0f766e;
+  --pb-accent-soft: rgba(15, 118, 110, 0.1);
 }
 
 @theme inline {
@@ -19,16 +19,18 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   text-rendering: optimizeLegibility;
+  letter-spacing: -0.011em;
 }
 
 ::selection {
-  background-color: color-mix(in oklab, var(--pb-accent) 28%, transparent);
+  background-color: color-mix(in oklab, var(--pb-accent) 26%, transparent);
 }
 
 @media print {
   body {
     background: #fff;
     color: #000;
+    letter-spacing: normal;
   }
 
   .print-hide {
