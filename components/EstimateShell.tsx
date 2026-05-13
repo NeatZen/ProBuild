@@ -26,6 +26,9 @@ import { ValidationBanner } from "./ValidationBanner";
 import { WorkspaceDataMenu } from "./WorkspaceDataMenu";
 import { LineSearchBar } from "./LineSearchBar";
 
+import { useDensityClasses } from "@/hooks/useDensityClasses";
+import { displayHeadingClass } from "@/lib/uiTokens";
+
 export function EstimateShell() {
   const didHydrate = useRef(false);
 
@@ -37,6 +40,7 @@ export function EstimateShell() {
 
   const estimate = useProBuildStore(selectActiveEstimate);
   const lineFilter = useProBuildStore((s) => s.ui.lineFilter);
+  const d = useDensityClasses();
   const addLine = useProBuildStore((s) => s.addLine);
   const resetCurrentEstimateWorkspace = useProBuildStore((s) => s.resetCurrentEstimateWorkspace);
   const setLineFilter = useProBuildStore((s) => s.setLineFilter);
@@ -126,8 +130,10 @@ export function EstimateShell() {
         aria-hidden
       />
 
-      <header className="print-hide relative border-b border-stone-200 bg-white px-4 py-5 shadow-sm shadow-stone-900/[0.04] sm:py-6">
-        <div className="mx-auto flex max-w-3xl flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+      <header
+        className={`print-hide relative border-b border-stone-200 bg-white px-4 shadow-sm shadow-stone-900/[0.04] ${d.headerShellPy}`}
+      >
+        <div className={`mx-auto flex max-w-3xl flex-col sm:flex-row sm:items-start sm:justify-between ${d.headerShellGap}`}>
           <div className="flex min-w-0 flex-1 items-start gap-4 sm:gap-5">
             <div
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-teal-700 text-xs font-bold tracking-tight text-white shadow-sm sm:h-12 sm:w-12 sm:text-sm"
@@ -143,7 +149,9 @@ export function EstimateShell() {
                 <span className="hidden h-px w-8 bg-stone-200 sm:inline" aria-hidden />
                 <p className="hidden text-[11px] font-medium text-stone-400 sm:inline">Estimate workspace</p>
               </div>
-              <h1 className="mt-1.5 text-balance text-2xl font-semibold tracking-tight text-stone-900 sm:text-[1.625rem] sm:leading-snug">
+              <h1
+                className={`${displayHeadingClass} mt-1.5 text-balance text-2xl sm:text-[1.625rem] sm:leading-snug`}
+              >
                 Construction estimate
               </h1>
               <p className="mt-2 max-w-xl text-pretty text-sm leading-relaxed text-stone-600">
@@ -161,7 +169,9 @@ export function EstimateShell() {
         </div>
       </header>
 
-      <div className="relative mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-[calc(min(42vh,20rem)+env(safe-area-inset-bottom,0px)+1rem)] pt-7 sm:pb-14 sm:pt-8">
+      <div
+        className={`relative mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 ${d.shellMainPt} ${d.shellMainPb}`}
+      >
         <ValidationBanner warnings={validateEstimate(estimate)} />
         <RevisionHistory />
         <EstimateHeader />
@@ -175,10 +185,10 @@ export function EstimateShell() {
 
         <EmptyEstimateTips estimate={estimate} />
 
-        <div className="mt-10 print-show">
+        <div className={`${d.lineSectionMt} print-show`}>
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div className="space-y-1">
-              <h2 className="text-[13px] font-semibold tracking-tight text-stone-900 sm:text-sm">
+              <h2 className="font-heading text-[13px] font-semibold tracking-tight text-stone-900 sm:text-sm">
                 Line items
               </h2>
               <p className="text-xs text-stone-500">
@@ -189,13 +199,13 @@ export function EstimateShell() {
             </div>
             <span
               data-testid="line-count-badge"
-              className="inline-flex items-center rounded-md border border-stone-200 bg-white px-2.5 py-1 text-[11px] font-medium tabular-nums text-stone-600 shadow-sm"
+              className={`inline-flex items-center rounded-md border border-stone-200 bg-white font-medium tabular-nums text-stone-600 shadow-sm ${d.lineCountBadge}`}
             >
               {estimate.lines.length} line{estimate.lines.length === 1 ? "" : "s"}
             </span>
           </div>
 
-          <section aria-label="Line items" className="flex flex-col gap-5">
+          <section aria-label="Line items" className={`flex flex-col ${d.lineStackGap}`}>
             {estimate.lines.map((line, index) => (
               <LineItemRow
                 key={line.id}

@@ -4,9 +4,10 @@ import { useMemo, useState } from "react";
 
 import { estimateTotals } from "@/lib/estimateMath";
 import { useMoneyFormatter } from "@/hooks/useMoneyFormatter";
+import { useDensityClasses } from "@/hooks/useDensityClasses";
 import { selectActiveEstimate, useProBuildStore } from "@/store/proBuildStore";
 
-import { cardSurface, labelClassCompact } from "@/lib/uiTokens";
+import { cardSurface, headingClass, labelClassCompact } from "@/lib/uiTokens";
 
 export function RevisionHistory() {
   const estimate = useProBuildStore(selectActiveEstimate);
@@ -32,11 +33,16 @@ export function RevisionHistory() {
   const activeTotals = estimateTotals(estimate);
   const compareTotals = compareRev ? estimateTotals(compareRev.payload) : null;
 
+  const d = useDensityClasses();
+
   return (
-    <section aria-label="Revision history" className={`${cardSurface} mt-5 p-4 sm:p-5`}>
+    <section
+      aria-label="Revision history"
+      className={`${cardSurface} ${d.revisionSectionMt} ${d.cardPadTight}`}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-sm font-semibold tracking-tight text-stone-900">Revision snapshots</h2>
+          <h2 className={`${headingClass} text-sm`}>Revision snapshots</h2>
           <p className="mt-1 text-xs text-stone-500">
             Saved on this device only. Restore replaces the current estimate (you can save another snapshot first).
           </p>
@@ -51,7 +57,7 @@ export function RevisionHistory() {
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Before pricing meeting"
-              className="min-h-11 min-w-0 flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 shadow-sm outline-none transition hover:border-stone-300 focus-visible:border-teal-600/80 focus-visible:ring-2 focus-visible:ring-teal-600/15"
+              className={`min-w-0 flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 shadow-sm outline-none transition hover:border-stone-300 focus-visible:border-teal-600/80 focus-visible:ring-2 focus-visible:ring-teal-600/15 ${d.formFieldMinH}`}
             />
             <button
               type="button"

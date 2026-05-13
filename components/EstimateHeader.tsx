@@ -1,6 +1,7 @@
 "use client";
 
-import { cardSurface, inputClass, labelClass } from "@/lib/uiTokens";
+import { cardSurface, headingClass, inputClass, labelClass } from "@/lib/uiTokens";
+import { useDensityClasses } from "@/hooks/useDensityClasses";
 import { selectActiveEstimate, useProBuildStore } from "@/store/proBuildStore";
 
 export function EstimateHeader() {
@@ -8,9 +9,10 @@ export function EstimateHeader() {
   const clientNotes = useProBuildStore((s) => selectActiveEstimate(s).clientNotes);
   const setProjectName = useProBuildStore((s) => s.setProjectName);
   const setClientNotes = useProBuildStore((s) => s.setClientNotes);
+  const d = useDensityClasses();
 
   return (
-    <div className={`print-show overflow-hidden p-5 sm:p-6 ${cardSurface}`}>
+    <div className={`print-show overflow-hidden ${cardSurface} ${d.cardPad}`}>
       <div className="flex items-center gap-3 border-b border-stone-100 pb-4">
         <span
           className="flex h-9 w-9 items-center justify-center rounded-md border border-stone-200 bg-stone-50 text-stone-500"
@@ -19,7 +21,7 @@ export function EstimateHeader() {
           <span className="h-1.5 w-1.5 rounded-full bg-teal-600" />
         </span>
         <div>
-          <p className="text-sm font-semibold text-stone-900">Project details</p>
+          <p className={`${headingClass} text-sm`}>Project details</p>
           <p className="text-xs text-stone-500">Shown on print and export</p>
         </div>
       </div>
@@ -35,7 +37,7 @@ export function EstimateHeader() {
             value={projectName}
             onChange={(e) => setProjectName(e.target.value)}
             placeholder="e.g. Oak St. kitchen remodel"
-            className={inputClass}
+            className={`${inputClass} ${d.formFieldMinH}`}
             autoComplete="off"
           />
         </div>
@@ -50,7 +52,7 @@ export function EstimateHeader() {
             onChange={(e) => setClientNotes(e.target.value)}
             placeholder="Optional details, allowances, exclusions…"
             rows={3}
-            className={`${inputClass} resize-y leading-relaxed`}
+            className={`${inputClass} ${d.formFieldMinH} resize-y leading-relaxed`}
           />
         </div>
       </div>

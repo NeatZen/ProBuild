@@ -2,8 +2,9 @@
 
 import type { Estimate } from "@/lib/estimateTypes";
 import { lineExtended } from "@/lib/estimateMath";
+import { useDensityClasses } from "@/hooks/useDensityClasses";
 
-import { cardSurface } from "@/lib/uiTokens";
+import { cardSurface, headingClass } from "@/lib/uiTokens";
 
 function hasMeaningfulContent(estimate: Estimate): boolean {
   return estimate.lines.some((line) => {
@@ -19,11 +20,15 @@ type Props = {
 };
 
 export function EmptyEstimateTips({ estimate }: Props) {
+  const d = useDensityClasses();
+
   if (hasMeaningfulContent(estimate)) return null;
 
   return (
-    <div className={`${cardSurface} mt-6 border-teal-100 bg-gradient-to-b from-teal-50/60 to-white p-4 sm:p-5`}>
-      <h2 className="text-sm font-semibold text-stone-900">First-run tips</h2>
+    <div
+      className={`${cardSurface} border-teal-100 bg-gradient-to-b from-teal-50/60 to-white ${d.emptyTipsMt} ${d.cardPadTight}`}
+    >
+      <h2 className={`${headingClass} text-sm`}>First-run tips</h2>
       <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-stone-700">
         <li>Name the project, then add line items or insert a template or assembly from the toolbar.</li>
         <li>

@@ -1,5 +1,11 @@
 import type { AppPersist, AppSettings, EstimateRevision } from "./appTypes";
-import { APP_SCHEMA_VERSION, defaultSettings, defaultUiState, type CurrencyCode } from "./appTypes";
+import {
+  APP_SCHEMA_VERSION,
+  defaultSettings,
+  defaultUiState,
+  type CurrencyCode,
+  type DensityMode,
+} from "./appTypes";
 import { normalizeEstimate } from "./estimateNormalize";
 import { createDefaultEstimate, type Estimate } from "./estimateTypes";
 
@@ -91,11 +97,13 @@ export function normalizeAppPersist(input: AppPersist): AppPersist {
     .map((e) => normalizeEstimate(e));
   if (estimates.length === 0) {
     const e = createDefaultEstimate();
+    const settings: AppSettings = { ...defaultSettings, ...input.settings };
+    settings.density = settings.density === "compact" ? "compact" : "comfortable";
     return {
       version: APP_SCHEMA_VERSION,
       estimates: [e],
       activeEstimateId: e.id,
-      settings: { ...defaultSettings, ...input.settings },
+      settings,
       ui: { ...defaultUiState, ...input.ui },
       revisionsByEstimateId: normalizeRevisionsMap(input.revisionsByEstimateId),
     };
@@ -110,6 +118,8 @@ export function normalizeAppPersist(input: AppPersist): AppPersist {
   if (!allowed.includes(settings.currency)) {
     settings.currency = "USD";
   }
+  const density: DensityMode = settings.density === "compact" ? "compact" : "comfortable";
+  settings.density = density;
   return {
     version: APP_SCHEMA_VERSION,
     estimates,

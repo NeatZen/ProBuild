@@ -2,7 +2,8 @@
 
 import { ASSEMBLIES } from "@/lib/assemblies";
 import { LINE_TEMPLATES } from "@/lib/lineTemplates";
-import { toolbarWell } from "@/lib/uiTokens";
+import { useDensityClasses } from "@/hooks/useDensityClasses";
+import { toolbarWellFrame } from "@/lib/uiTokens";
 import { useProBuildStore } from "@/store/proBuildStore";
 
 type Props = {
@@ -46,9 +47,10 @@ const ghostBtn =
 export function EstimateToolbar({ onAddLine, onExportCsv, onPrint, onClear }: Props) {
   const insertTemplate = useProBuildStore((s) => s.insertTemplate);
   const insertAssembly = useProBuildStore((s) => s.insertAssembly);
+  const d = useDensityClasses();
 
   return (
-    <div className="print-hide mt-7 flex flex-col gap-3">
+    <div className={`print-hide flex flex-col ${d.toolbarMt} gap-3`}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:justify-between">
         <button
           type="button"
@@ -62,7 +64,7 @@ export function EstimateToolbar({ onAddLine, onExportCsv, onPrint, onClear }: Pr
           Add line item
         </button>
 
-        <div className={`flex flex-wrap gap-2 sm:flex-1 sm:justify-end sm:gap-1.5 ${toolbarWell}`}>
+        <div className={`flex flex-wrap gap-2 sm:flex-1 sm:justify-end sm:gap-1.5 ${toolbarWellFrame} ${d.toolbarWellPad}`}>
           <label className="sr-only" htmlFor="template-insert">
             Insert template lines
           </label>

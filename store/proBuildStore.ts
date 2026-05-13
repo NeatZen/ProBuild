@@ -5,6 +5,7 @@ import type {
   AppSettings,
   AppUiState,
   CurrencyCode,
+  DensityMode,
   EstimateRevision,
   SaveStatus,
 } from "@/lib/appTypes";
@@ -115,6 +116,7 @@ export type ProBuildState = {
   toggleLineCollapsed: (lineId: string) => void;
   setCurrency: (c: CurrencyCode) => void;
   setLocale: (locale: string) => void;
+  setDensity: (d: DensityMode) => void;
   importPersistJson: (json: string) => { ok: boolean; error?: string };
   exportPersistJson: () => string;
   exportActiveEstimateJson: () => string;
@@ -451,6 +453,11 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
   setLocale: (locale) =>
     set((s) => ({
       settings: { ...s.settings, locale: locale.trim() || defaultSettings.locale },
+    })),
+
+  setDensity: (density) =>
+    set((s) => ({
+      settings: { ...s.settings, density },
     })),
 
   importPersistJson: (json) => {

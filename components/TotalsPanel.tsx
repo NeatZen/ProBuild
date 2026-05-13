@@ -7,12 +7,13 @@ import { useMoneyFormatter } from "@/hooks/useMoneyFormatter";
 import type { CategoryMarkup } from "@/lib/estimateTypes";
 import { selectActiveEstimate, useProBuildStore } from "@/store/proBuildStore";
 
-import { cardSurfaceDock, inputClass, labelClassCompact } from "@/lib/uiTokens";
-
-const dockInputClass = `${inputClass} min-h-[44px] max-sm:min-h-[44px]`;
+import { cardSurfaceDock, headingClass, inputClass, labelClassCompact } from "@/lib/uiTokens";
+import { useDensityClasses } from "@/hooks/useDensityClasses";
 
 export function TotalsPanel() {
   const estimate = useProBuildStore(selectActiveEstimate);
+  const d = useDensityClasses();
+  const dockInputClass = `${inputClass} ${d.dockFieldMinH}`;
   const setMarkupPercent = useProBuildStore((s) => s.setMarkupPercent);
   const setTaxPercent = useProBuildStore((s) => s.setTaxPercent);
   const setOverheadPercent = useProBuildStore((s) => s.setOverheadPercent);
@@ -53,7 +54,7 @@ export function TotalsPanel() {
     <aside
       id="totals-panel"
       aria-label="Totals and adjustments"
-      className="print-show fixed inset-x-0 bottom-0 z-20 flex max-h-[min(42vh,20rem)] flex-col border-t border-stone-200 bg-white/95 shadow-[0_-4px_28px_-6px_rgba(15,23,42,0.08)] backdrop-blur-sm max-sm:pb-[max(0.35rem,env(safe-area-inset-bottom))] print:static print:max-h-none print:flex-none print:border-0 print:bg-transparent print:pb-0 print:shadow-none sm:static sm:z-0 sm:max-h-none sm:border-0 sm:bg-transparent sm:pb-0 sm:shadow-none sm:backdrop-blur-none"
+      className={`print-show fixed inset-x-0 bottom-0 z-20 flex ${d.totalsAsideMaxH} flex-col border-t border-stone-200 bg-white/95 shadow-[0_-4px_28px_-6px_rgba(15,23,42,0.08)] backdrop-blur-sm ${d.dockSafeBottom} print:static print:max-h-none print:flex-none print:border-0 print:bg-transparent print:pb-0 print:shadow-none sm:static sm:z-0 sm:max-h-none sm:border-0 sm:bg-transparent sm:pb-0 sm:shadow-none sm:backdrop-blur-none`}
     >
       <span id="totals-panel-start" tabIndex={-1} className="sr-only">
         Totals panel
@@ -74,10 +75,10 @@ export function TotalsPanel() {
         >
           <div className="h-px shrink-0 bg-teal-600" aria-hidden />
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:p-6 sm:pb-6">
-            <div className="flex flex-wrap items-end justify-between gap-2 border-b border-stone-200/40 pb-2 sm:gap-3 sm:pb-4">
+          <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${d.totalsScrollPadding}`}>
+            <div className={`flex flex-wrap items-end justify-between gap-2 border-b border-stone-200/40 sm:gap-3 ${d.totalsSectionTitlePb}`}>
               <div>
-                <h2 className="text-xs font-semibold tracking-tight text-stone-900 sm:text-sm">Totals</h2>
+                <h2 className={`${headingClass} text-xs sm:text-sm`}>Totals</h2>
                 <p className="mt-0.5 hidden text-xs leading-relaxed text-stone-500 sm:block">
                   Category markups adjust each group first, then global markup, overhead, bond/insurance flat, tax, and
                   retention.
@@ -272,8 +273,12 @@ export function TotalsPanel() {
                 <dd className="font-medium text-stone-900 font-mono">{formatMoney(totals.retentionAmount)}</dd>
               </div>
 
-              <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-stone-900 px-4 py-3 text-white shadow-sm sm:mt-4 print:border print:border-stone-300 print:bg-white print:text-stone-900">
-                <dt className="text-xs font-semibold tracking-tight sm:text-sm">Grand total</dt>
+              <div
+                className={`flex items-center justify-between gap-3 rounded-lg bg-stone-900 px-4 py-3 text-white shadow-sm print:border print:border-stone-300 print:bg-white print:text-stone-900 ${d.grandTotalStackMt}`}
+              >
+                <dt className="font-heading text-xs font-semibold tracking-tight text-white sm:text-sm print:text-stone-900">
+                  Grand total
+                </dt>
                 <dd className="text-base font-bold tabular-nums tracking-tight font-mono sm:text-lg md:text-xl" aria-live="off">
                   {formatMoney(totals.grandTotal)}
                 </dd>

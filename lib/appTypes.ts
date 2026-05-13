@@ -12,10 +12,14 @@ export type EstimateRevision = {
 
 export type CurrencyCode = "USD" | "EUR" | "GBP" | "CAD" | "AUD";
 
+export type DensityMode = "comfortable" | "compact";
+
 export type AppSettings = {
   currency: CurrencyCode;
   /** BCP 47 locale for number formatting */
   locale: string;
+  /** Vertical rhythm: tighter spacing and smaller targets in compact mode */
+  density: DensityMode;
 };
 
 export type AppUiState = {
@@ -38,6 +42,7 @@ export type SaveStatus = "idle" | "pending" | "saved" | "error";
 export const defaultSettings: AppSettings = {
   currency: "USD",
   locale: "en-US",
+  density: "comfortable",
 };
 
 export const defaultUiState: AppUiState = {

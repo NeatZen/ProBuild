@@ -5,6 +5,7 @@ import { useRef } from "react";
 import type { LineItem } from "@/lib/estimateTypes";
 import { lineExtended } from "@/lib/estimateMath";
 import { cardSurfaceElevated, inputClass, labelClass } from "@/lib/uiTokens";
+import { useDensityClasses } from "@/hooks/useDensityClasses";
 import { useMoneyFormatter } from "@/hooks/useMoneyFormatter";
 import { useProBuildStore } from "@/store/proBuildStore";
 
@@ -62,6 +63,8 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
   const collapsed = useProBuildStore((s) => s.ui.collapsedLineIds.includes(line.id));
   const toggleLineCollapsed = useProBuildStore((s) => s.toggleLineCollapsed);
 
+  const d = useDensityClasses();
+
   const touchStartX = useRef<number | null>(null);
 
   const extended = lineExtended(line);
@@ -75,7 +78,7 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
   if (collapsed) {
     return (
       <article
-        className={`relative overflow-hidden rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition-opacity ${dimmed ? "opacity-35" : ""}`}
+        className={`relative overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm transition-opacity ${d.lineItemCollapsedPad} ${dimmed ? "opacity-35" : ""}`}
       >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -116,11 +119,11 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
           if (window.confirm("Remove this line?")) removeLine(line.id);
         }
       }}
-      className={`group relative overflow-hidden p-5 sm:p-6 ${cardSurfaceElevated} before:pointer-events-none before:absolute before:inset-y-5 before:left-0 before:w-0.5 before:rounded-full before:bg-teal-600 ${dimmed ? "opacity-35" : ""}`}
+      className={`group relative overflow-hidden ${d.lineItemPad} ${cardSurfaceElevated} before:pointer-events-none before:absolute before:inset-y-5 before:left-0 before:w-0.5 before:rounded-full before:bg-teal-600 ${dimmed ? "opacity-35" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <span className="inline-flex items-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-stone-600">
+          <span className={`inline-flex items-center gap-2 rounded-md border border-stone-200 bg-stone-50 font-medium uppercase tracking-wide text-stone-600 ${d.lineLabelChip}`}>
             Line {index + 1}
           </span>
           {line.kitName ? (
@@ -179,7 +182,7 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
         </div>
       </div>
 
-      <div className="mt-5 flex flex-col gap-4">
+      <div className={`mt-5 flex flex-col ${d.lineItemFieldGap}`}>
         <div>
           <label className={labelClass} htmlFor={`desc-${line.id}`}>
             Description
@@ -189,7 +192,7 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
             value={line.description}
             onChange={(e) => setLine(line.id, { description: e.target.value })}
             placeholder="Scope of work"
-            className={inputClass}
+            className={`${inputClass} ${d.formFieldMinH}`}
           />
         </div>
 
@@ -203,7 +206,7 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
             value={line.category}
             onChange={(e) => setLine(line.id, { category: e.target.value })}
             placeholder="e.g. Labor"
-            className={inputClass}
+            className={`${inputClass} ${d.formFieldMinH}`}
           />
           <datalist id={listId}>
             {CATEGORY_SUGGESTIONS.map((c) => (
@@ -225,7 +228,7 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
               step="any"
               value={Number.isFinite(line.quantity) ? line.quantity : 0}
               onChange={(e) => setLine(line.id, { quantity: Number(e.target.value) })}
-              className={`${inputClass} font-mono tabular-nums`}
+              className={`${inputClass} ${d.formFieldMinH} font-mono tabular-nums`}
             />
           </div>
           <div className="col-span-1">
@@ -237,7 +240,7 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
               value={line.unit}
               onChange={(e) => setLine(line.id, { unit: e.target.value })}
               placeholder="ea"
-              className={`${inputClass} font-mono text-sm uppercase tracking-wide sm:text-base`}
+              className={`${inputClass} ${d.formFieldMinH} font-mono text-sm uppercase tracking-wide sm:text-base`}
             />
           </div>
           <div className="col-span-2 sm:col-span-1">
@@ -252,12 +255,12 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
               step="0.01"
               value={Number.isFinite(line.unitCost) ? line.unitCost : 0}
               onChange={(e) => setLine(line.id, { unitCost: Number(e.target.value) })}
-              className={`${inputClass} font-mono tabular-nums`}
+              className={`${inputClass} ${d.formFieldMinH} font-mono tabular-nums`}
             />
           </div>
           <div className="col-span-2 flex flex-col justify-end sm:col-span-1">
             <span className={labelClass}>Line total</span>
-            <p className="mt-1.5 flex min-h-11 items-center rounded-xl border border-teal-200/55 bg-gradient-to-br from-teal-50/95 via-white/80 to-white px-3.5 py-2.5 text-base font-semibold tabular-nums text-teal-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] shadow-sm font-mono max-sm:min-h-9 max-sm:rounded-lg max-sm:py-1.5 max-sm:text-sm">
+            <p className={`mt-1.5 flex items-center rounded-lg border border-teal-200 bg-teal-50/90 px-3.5 py-2.5 font-mono text-base font-semibold tabular-nums text-teal-950 shadow-sm ${d.formFieldMinH}`}>
               {formatMoney(extended)}
             </p>
           </div>
