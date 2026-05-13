@@ -49,3 +49,20 @@ export function createDefaultEstimate(): Estimate {
     lines: [createEmptyLineItem(lineId)],
   };
 }
+
+/** Clear fields but keep the same estimate id (stable in lists and URLs). */
+export function resetEstimateInPlace(estimateId: string): Estimate {
+  const lineId =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `line-${Date.now()}`;
+  return {
+    version: ESTIMATE_SCHEMA_VERSION,
+    id: estimateId,
+    projectName: "",
+    clientNotes: "",
+    markupPercent: 0,
+    taxPercent: 0,
+    lines: [createEmptyLineItem(lineId)],
+  };
+}

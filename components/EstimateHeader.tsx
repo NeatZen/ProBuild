@@ -1,13 +1,13 @@
 "use client";
 
 import { cardSurface, inputClass, labelClass } from "@/lib/uiTokens";
-import { useEstimateStore } from "@/store/estimateStore";
+import { selectActiveEstimate, useProBuildStore } from "@/store/proBuildStore";
 
 export function EstimateHeader() {
-  const projectName = useEstimateStore((s) => s.estimate.projectName);
-  const clientNotes = useEstimateStore((s) => s.estimate.clientNotes);
-  const setProjectName = useEstimateStore((s) => s.setProjectName);
-  const setClientNotes = useEstimateStore((s) => s.setClientNotes);
+  const projectName = useProBuildStore((s) => selectActiveEstimate(s).projectName);
+  const clientNotes = useProBuildStore((s) => selectActiveEstimate(s).clientNotes);
+  const setProjectName = useProBuildStore((s) => s.setProjectName);
+  const setClientNotes = useProBuildStore((s) => s.setClientNotes);
 
   return (
     <div className={`print-show overflow-hidden p-5 sm:p-6 ${cardSurface}`}>

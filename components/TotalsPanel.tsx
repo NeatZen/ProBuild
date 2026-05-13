@@ -1,14 +1,16 @@
 "use client";
 
 import { estimateTotals } from "@/lib/estimateMath";
-import { formatMoney } from "@/lib/formatMoney";
-import { cardSurfaceDock, inputClass, labelClassCompact } from "@/lib/uiTokens";
-import { useEstimateStore } from "@/store/estimateStore";
+import { useMoneyFormatter } from "@/hooks/useMoneyFormatter";
+import { selectActiveEstimate, useProBuildStore } from "@/store/proBuildStore";
+
+import { inputClass, labelClassCompact } from "@/lib/uiTokens";
 
 export function TotalsPanel() {
-  const estimate = useEstimateStore((s) => s.estimate);
-  const setMarkupPercent = useEstimateStore((s) => s.setMarkupPercent);
-  const setTaxPercent = useEstimateStore((s) => s.setTaxPercent);
+  const estimate = useProBuildStore(selectActiveEstimate);
+  const setMarkupPercent = useProBuildStore((s) => s.setMarkupPercent);
+  const setTaxPercent = useProBuildStore((s) => s.setTaxPercent);
+  const formatMoney = useMoneyFormatter();
 
   const totals = estimateTotals(estimate);
 
@@ -19,7 +21,7 @@ export function TotalsPanel() {
     >
       <div className="flex min-h-0 flex-1 flex-col px-3 pt-2 sm:px-0 sm:pt-0">
         <div
-          className={`relative mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col overflow-hidden ${cardSurfaceDock} shadow-[0_22px_60px_-38px_rgba(28,25,23,0.28)] sm:mt-10 sm:shadow-[0_26px_70px_-40px_rgba(28,25,23,0.22)]`}
+          className="relative mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-stone-200/55 border-b-0 bg-white/[0.68] shadow-[0_22px_60px_-38px_rgba(28,25,23,0.28)] ring-1 ring-white/45 backdrop-blur-md sm:mt-10 sm:rounded-2xl sm:border-b sm:shadow-[0_26px_70px_-40px_rgba(28,25,23,0.22)]"
         >
           <div
             className="h-0.5 shrink-0 bg-gradient-to-r from-teal-500 via-emerald-400 to-indigo-400 sm:h-1"

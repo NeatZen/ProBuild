@@ -1,7 +1,10 @@
+import type { AppPersist, AppSettings } from "./appTypes";
+import { APP_SCHEMA_VERSION, defaultSettings, defaultUiState, type CurrencyCode } from "./appTypes";
 import type { Estimate } from "./estimateTypes";
 import { ESTIMATE_SCHEMA_VERSION, createDefaultEstimate } from "./estimateTypes";
 
-export const STORAGE_KEY = "probuild-estimate-v1";
+export const LEGACY_STORAGE_KEY = "probuild-estimate-v1";
+export const APP_STORAGE_KEY = "probuild-app-v2";
 
 export const DEBOUNCE_MS = 500;
 
@@ -23,37 +26,122 @@ export function parseStoredEstimate(raw: string | null): Estimate | null {
   }
 }
 
-export function loadFromStorage(): Estimate | null {
-  if (typeof window === "undefined") return null;
+function parseAppPersist(raw: string | null): AppPersist | null {
+  if (raw == null || raw === "") return null;
   try {
-    return parseStoredEstimate(window.localStorage.getItem(STORAGE_KEY));
+    const data = JSON.parse(raw) as unknown;
+    if (!data || typeof data !== "object") return null;
+    const obj = data as Record<string, unknown>;
+    if (obj.version !== APP_SCHEMA_VERSION) return null;
+    if (!Array.isArray(obj.estimates) || typeof obj.activeEstimateId !== "string") return null;
+    return data as AppPersist;
   } catch {
     return null;
   }
 }
 
-export function saveToStorage(estimate: Estimate): void {
+export function migrateLegacyIfNeeded(): void {
   if (typeof window === "undefined") return;
+  if (window.localStorage.getItem(APP_STORAGE_KEY)) return;
+  const legacy = parseStoredEstimate(window.localStorage.getItem(LEGACY_STORAGE_KEY));
+  if (!legacy) return;
+  const persist: AppPersist = {
+    version: APP_SCHEMA_VERSION,
+    estimates: [legacy],
+    activeEstimateId: legacy.id,
+    settings: { ...defaultSettings },
+    ui: { ...defaultUiState },
+  };
   try {
-    window.localStorage.setItem(STORAGE_KEY, serializeEstimate(estimate));
-  } catch {
-    // Quota or private mode — ignore
-  }
-}
-
-export function clearStorage(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(persist));
   } catch {
     // ignore
   }
 }
 
-export function hydrateOrDefault(): Estimate {
-  const loaded = loadFromStorage();
-  if (loaded) return loaded;
-  return createDefaultEstimate();
+export function normalizeAppPersist(input: AppPersist): AppPersist {
+  const estimates = input.estimates.filter(
+    (e) => e && typeof e === "object" && Array.isArray(e.lines),
+  ) as Estimate[];
+  if (estimates.length === 0) {
+    const e = createDefaultEstimate();
+    return {
+      version: APP_SCHEMA_VERSION,
+      estimates: [e],
+      activeEstimateId: e.id,
+      settings: { ...defaultSettings, ...input.settings },
+      ui: { ...defaultUiState, ...input.ui },
+    };
+  }
+  const activeOk = estimates.some((e) => e.id === input.activeEstimateId);
+  const activeEstimateId = activeOk ? input.activeEstimateId : estimates[0].id;
+  const settings: AppSettings = {
+    ...defaultSettings,
+    ...input.settings,
+  };
+  const allowed: CurrencyCode[] = ["USD", "EUR", "GBP", "CAD", "AUD"];
+  if (!allowed.includes(settings.currency)) {
+    settings.currency = "USD";
+  }
+  return {
+    version: APP_SCHEMA_VERSION,
+    estimates,
+    activeEstimateId,
+    settings,
+    ui: {
+      lineFilter: input.ui?.lineFilter ?? "",
+      collapsedLineIds: Array.isArray(input.ui?.collapsedLineIds)
+        ? input.ui.collapsedLineIds
+        : [],
+    },
+  };
+}
+
+export function createDefaultAppPersist(): AppPersist {
+  const e = createDefaultEstimate();
+  return {
+    version: APP_SCHEMA_VERSION,
+    estimates: [e],
+    activeEstimateId: e.id,
+    settings: { ...defaultSettings },
+    ui: { ...defaultUiState },
+  };
+}
+
+export function loadAppPersistFromStorage(): AppPersist | null {
+  if (typeof window === "undefined") return null;
+  try {
+    migrateLegacyIfNeeded();
+    return parseAppPersist(window.localStorage.getItem(APP_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+export function loadOrCreateAppPersist(): AppPersist {
+  const loaded = loadAppPersistFromStorage();
+  if (loaded) return normalizeAppPersist(loaded);
+  return createDefaultAppPersist();
+}
+
+export function saveAppPersistToStorage(persist: AppPersist): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    window.localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(persist));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function clearAllAppStorage(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(APP_STORAGE_KEY);
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
 }
 
 export function debounce<T extends (...args: never[]) => void>(fn: T, ms: number): T {
