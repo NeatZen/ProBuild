@@ -9,6 +9,7 @@ describe("useProBuildStore", () => {
     useProBuildStore.setState({
       estimates: seed.estimates,
       activeEstimateId: seed.activeEstimateId,
+      revisionsByEstimateId: seed.revisionsByEstimateId ?? {},
       settings: seed.settings,
       ui: { lineFilter: "", collapsedLineIds: [] },
       saveStatus: "idle",

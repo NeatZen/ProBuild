@@ -11,16 +11,16 @@ export function EstimateHeader() {
 
   return (
     <div className={`print-show overflow-hidden p-5 sm:p-6 ${cardSurface}`}>
-      <div className="flex items-center gap-3 border-b border-stone-200/50 pb-4">
+      <div className="flex items-center gap-3 border-b border-stone-100 pb-4">
         <span
-          className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-teal-600/15 to-teal-700/5 ring-1 ring-teal-700/10"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-stone-200 bg-stone-50 text-stone-500"
           aria-hidden
         >
-          <span className="h-2 w-2 rounded-full bg-teal-600 shadow-[0_0_0_4px_rgba(13,148,136,0.12)]" />
+          <span className="h-1.5 w-1.5 rounded-full bg-teal-600" />
         </span>
         <div>
-          <p className="text-xs font-semibold text-stone-800">Project details</p>
-          <p className="text-[11px] text-stone-500">Shown on print and export</p>
+          <p className="text-sm font-semibold text-stone-900">Project details</p>
+          <p className="text-xs text-stone-500">Shown on print and export</p>
         </div>
       </div>
 

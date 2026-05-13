@@ -14,7 +14,7 @@ export function ValidationBanner({ warnings }: Props) {
 
   return (
     <div
-      className="print-hide mb-5 rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-sm text-amber-950 shadow-sm ring-1 ring-white/50 backdrop-blur-sm"
+      className="print-hide mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-sm"
       role="status"
     >
       <p className="font-semibold text-amber-950">Review before you send this estimate</p>
