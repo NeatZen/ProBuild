@@ -4,6 +4,7 @@ import {
   categorySubtotals,
   computeTotals,
   lineExtended,
+  progressiveMarkupAmount,
   roundMoney,
   subtotalFromLines,
 } from "../estimateMath";
@@ -79,12 +80,23 @@ describe("categorySubtotals", () => {
   });
 });
 
+describe("progressiveMarkupAmount", () => {
+  it("applies marginal bands on adjusted subtotal", () => {
+    const tiers = [
+      { upto: 100, percent: 10 },
+      { upto: null, percent: 5 },
+    ];
+    expect(progressiveMarkupAmount(150, tiers)).toBe(12.5);
+  });
+});
+
 describe("computeTotals", () => {
   it("applies markup then tax on taxable base (no optional layers)", () => {
     const lines = [line({ id: "1", quantity: 1, unitCost: 100 })];
-    const t = computeTotals(lines, 10, 8, 0, 0, 0, []);
+    const t = computeTotals(lines, 10, "flat", [], 8, "all", 0, 0, 0, []);
     expect(t.subtotal).toBe(100);
     expect(t.adjustedSubtotal).toBe(100);
+    expect(t.taxScopeFraction).toBe(1);
     expect(t.markupAmount).toBe(10);
     expect(t.taxableBase).toBe(110);
     expect(t.taxAmount).toBe(8.8);
@@ -95,7 +107,7 @@ describe("computeTotals", () => {
 
   it("handles zero markup and tax", () => {
     const lines = [line({ id: "1", quantity: 2, unitCost: 0.33 })];
-    const t = computeTotals(lines, 0, 0, 0, 0, 0, []);
+    const t = computeTotals(lines, 0, "flat", [], 0, "all", 0, 0, 0, []);
     expect(t.subtotal).toBe(0.66);
     expect(t.grandTotal).toBe(0.66);
   });
@@ -105,7 +117,7 @@ describe("computeTotals", () => {
       line({ id: "1", category: "Labor", quantity: 1, unitCost: 100 }),
       line({ id: "2", category: "Materials", quantity: 1, unitCost: 100 }),
     ];
-    const t = computeTotals(lines, 0, 0, 0, 0, 0, [{ category: "Labor", percent: 10 }]);
+    const t = computeTotals(lines, 0, "flat", [], 0, "all", 0, 0, 0, [{ category: "Labor", percent: 10 }]);
     expect(t.subtotal).toBe(200);
     expect(t.adjustedSubtotal).toBe(210);
     expect(t.markupAmount).toBe(0);
@@ -114,7 +126,7 @@ describe("computeTotals", () => {
 
   it("applies overhead, bond flat, and retention", () => {
     const lines = [line({ id: "1", quantity: 1, unitCost: 100 })];
-    const t = computeTotals(lines, 0, 10, 10, 50, 5, []);
+    const t = computeTotals(lines, 0, "flat", [], 10, "all", 10, 50, 5, []);
     expect(t.subtotal).toBe(100);
     expect(t.markupAmount).toBe(0);
     expect(t.overheadAmount).toBe(10);
@@ -124,5 +136,17 @@ describe("computeTotals", () => {
     expect(t.grandTotal).toBe(176);
     expect(t.retentionAmount).toBe(8.8);
     expect(t.netDue).toBe(167.2);
+  });
+
+  it("scopes tax to materials when requested (proportional)", () => {
+    const lines = [
+      line({ id: "1", lineType: "labor", category: "L", quantity: 1, unitCost: 100 }),
+      line({ id: "2", lineType: "material", category: "M", quantity: 1, unitCost: 100 }),
+    ];
+    const t = computeTotals(lines, 0, "flat", [], 10, "materials_equipment", 0, 0, 0, []);
+    expect(t.adjustedSubtotal).toBe(200);
+    expect(t.taxScopeFraction).toBe(0.5);
+    expect(t.taxableBase).toBe(200);
+    expect(t.taxAmount).toBe(10);
   });
 });

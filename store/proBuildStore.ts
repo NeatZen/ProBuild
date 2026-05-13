@@ -5,8 +5,10 @@ import type {
   AppSettings,
   AppUiState,
   CurrencyCode,
+  CustomAssemblyDefinition,
   DensityMode,
   EstimateRevision,
+  OnboardingChecklistState,
   SavedLineTemplate,
   SaveStatus,
   WorkspaceBranding,
@@ -14,9 +16,11 @@ import type {
 import {
   APP_SCHEMA_VERSION,
   defaultBranding,
+  defaultOnboardingChecklist,
   defaultSettings,
   defaultUiState,
 } from "@/lib/appTypes";
+import type { AssemblyDefinition } from "@/lib/assemblies";
 import { ASSEMBLIES } from "@/lib/assemblies";
 import { parseEstimateCsv } from "@/lib/csvImport";
 import { normalizeEstimate } from "@/lib/estimateNormalize";
@@ -26,6 +30,9 @@ import type {
   EstimateSection,
   LineItem,
   LineType,
+  MarkupMode,
+  MarkupTier,
+  TaxScope,
 } from "@/lib/estimateTypes";
 import {
   createDefaultEstimate,
@@ -33,12 +40,14 @@ import {
   inferLineTypeFromCategory,
   resetEstimateInPlace,
 } from "@/lib/estimateTypes";
+import { idbClearApp, idbReadApp } from "@/lib/idbApp";
 import { LINE_TEMPLATES } from "@/lib/lineTemplates";
 import {
   clearAllAppStorage,
   createDefaultAppPersist,
   loadOrCreateAppPersist,
   normalizeAppPersist,
+  parsePersistJsonString,
 } from "@/lib/persistence";
 
 function newId(): string {
@@ -118,6 +127,10 @@ function remapKitIds(lines: LineItem[]): LineItem[] {
   });
 }
 
+function assemblyCatalog(s: ProBuildState): AssemblyDefinition[] {
+  return [...ASSEMBLIES, ...s.customAssemblies];
+}
+
 function cloneEstimate(source: Estimate): Estimate {
   const newSections: EstimateSection[] = source.sections.map((s) => ({
     ...s,
@@ -150,6 +163,11 @@ export type UndoEntry = {
   snapshot: string;
 };
 
+export type PersistMeta = {
+  lastModifiedMs: number;
+  persistGeneration: number;
+};
+
 export type ProBuildState = {
   estimates: Estimate[];
   activeEstimateId: string;
@@ -158,16 +176,26 @@ export type ProBuildState = {
   ui: AppUiState;
   branding: WorkspaceBranding;
   savedLineLibrary: SavedLineTemplate[];
+  /** User-defined assemblies merged with built-ins. */
+  customAssemblies: CustomAssemblyDefinition[];
+  persistMeta: PersistMeta;
+  /** True when another tab/device likely wrote newer data (localStorage event). */
+  storageConflictWarning: boolean;
   undoStack: UndoEntry[];
   saveStatus: SaveStatus;
   saveErrorMessage: string | null;
   hydrated: boolean;
 
+  clearStorageConflictWarning: () => void;
   hydrateFromStorage: () => void;
   setProjectName: (v: string) => void;
   setClientNotes: (v: string) => void;
   setMarkupPercent: (v: number) => void;
+  setMarkupMode: (m: MarkupMode) => void;
+  setMarkupTiers: (rows: MarkupTier[]) => void;
   setTaxPercent: (v: number) => void;
+  setTaxScope: (scope: TaxScope) => void;
+  setJurisdictionLabel: (v: string) => void;
   setOverheadPercent: (v: number) => void;
   setBondInsuranceFlat: (v: number) => void;
   setRetentionPercent: (v: number) => void;
@@ -197,9 +225,14 @@ export type ProBuildState = {
 
   setBranding: (patch: Partial<WorkspaceBranding>) => void;
   setOnboardingComplete: (complete: boolean) => void;
+  setOnboardingChecklist: (patch: Partial<OnboardingChecklistState>) => void;
+
+  upsertCustomAssembly: (def: CustomAssemblyDefinition) => void;
+  removeCustomAssembly: (id: string) => void;
 
   addAlternateSection: () => void;
   setSectionLabel: (sectionId: string, label: string) => void;
+  setSectionSchedule: (sectionId: string, startDate: string, endDate: string) => void;
   removeSection: (sectionId: string) => void;
 
   saveLineToLibrary: (lineId: string, name: string) => void;
@@ -211,7 +244,10 @@ export type ProBuildState = {
 
   importCsvText: (text: string) => { ok: boolean; error?: string; imported?: number };
 
-  importPersistJson: (json: string) => { ok: boolean; error?: string };
+  importPersistJson: (
+    json: string,
+    options?: { force?: boolean },
+  ) => { ok: boolean; error?: string; staleBackup?: boolean };
   exportPersistJson: () => string;
   exportActiveEstimateJson: () => string;
   clearAllData: () => void;
@@ -229,10 +265,14 @@ export function persistSnapshot(state: ProBuildState): AppPersist {
       lineFilter: state.ui.lineFilter,
       collapsedLineIds: state.ui.collapsedLineIds,
       onboardingComplete: state.ui.onboardingComplete,
+      onboardingChecklist: state.ui.onboardingChecklist,
     },
     revisionsByEstimateId: state.revisionsByEstimateId,
     branding: state.branding,
     savedLineLibrary: state.savedLineLibrary,
+    customAssemblies: state.customAssemblies,
+    lastModifiedMs: state.persistMeta.lastModifiedMs,
+    persistGeneration: state.persistMeta.persistGeneration,
   });
 }
 
@@ -245,6 +285,10 @@ function pushUndo(s: ProBuildState, label: string): Pick<ProBuildState, "undoSta
 }
 
 const seed = createDefaultAppPersist();
+const seedMeta: PersistMeta = {
+  lastModifiedMs: seed.lastModifiedMs ?? Date.now(),
+  persistGeneration: seed.persistGeneration ?? 1,
+};
 
 export const useProBuildStore = create<ProBuildState>((set, get) => ({
   estimates: seed.estimates,
@@ -254,11 +298,15 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
   ui: { ...defaultUiState, ...seed.ui },
   branding: { ...defaultBranding, ...seed.branding },
   savedLineLibrary: seed.savedLineLibrary ?? [],
+  customAssemblies: seed.customAssemblies ?? [],
+  persistMeta: seedMeta,
+  storageConflictWarning: false,
   undoStack: [],
   saveStatus: "idle",
   saveErrorMessage: null,
   hydrated: false,
 
+  clearStorageConflictWarning: () => set({ storageConflictWarning: false }),
   hydrateFromStorage: () => {
     if (get().hydrated) return;
     const p = loadOrCreateAppPersist();
@@ -267,6 +315,10 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
       typeof window !== "undefined" &&
       (new URLSearchParams(window.location.search).has("skipTour") ||
         process.env.NEXT_PUBLIC_E2E === "1");
+    const checklist = {
+      ...defaultOnboardingChecklist,
+      ...(n.ui?.onboardingChecklist ?? {}),
+    };
     set({
       estimates: n.estimates,
       activeEstimateId: n.activeEstimateId,
@@ -276,11 +328,62 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
         lineFilter: n.ui?.lineFilter ?? "",
         collapsedLineIds: n.ui?.collapsedLineIds ?? [],
         onboardingComplete: skipTour ? true : Boolean(n.ui?.onboardingComplete),
+        onboardingChecklist: checklist,
       },
       branding: { ...defaultBranding, ...n.branding },
       savedLineLibrary: n.savedLineLibrary ?? [],
+      customAssemblies: n.customAssemblies ?? [],
+      persistMeta: {
+        lastModifiedMs: n.lastModifiedMs ?? 0,
+        persistGeneration: n.persistGeneration ?? 0,
+      },
       hydrated: true,
     });
+
+    if (typeof window !== "undefined") {
+      void (async () => {
+        try {
+          const raw = await idbReadApp();
+          if (!raw) return;
+          const fromIdb = parsePersistJsonString(raw);
+          if (!fromIdb) return;
+          const fromLs = normalizeAppPersist(p);
+          const lsMs = fromLs.lastModifiedMs ?? 0;
+          const idbMs = fromIdb.lastModifiedMs ?? 0;
+          const idbNewer =
+            idbMs > lsMs ||
+            (idbMs === lsMs && (fromIdb.persistGeneration ?? 0) > (fromLs.persistGeneration ?? 0));
+          if (!idbNewer) return;
+          const m = normalizeAppPersist(fromIdb);
+          const cl = {
+            ...defaultOnboardingChecklist,
+            ...(m.ui?.onboardingChecklist ?? {}),
+          };
+          if (!get().hydrated) return;
+          set({
+            estimates: m.estimates,
+            activeEstimateId: m.activeEstimateId,
+            revisionsByEstimateId: m.revisionsByEstimateId ?? {},
+            settings: { ...defaultSettings, ...m.settings },
+            ui: {
+              lineFilter: m.ui?.lineFilter ?? "",
+              collapsedLineIds: m.ui?.collapsedLineIds ?? [],
+              onboardingComplete: Boolean(m.ui?.onboardingComplete),
+              onboardingChecklist: cl,
+            },
+            branding: { ...defaultBranding, ...m.branding },
+            savedLineLibrary: m.savedLineLibrary ?? [],
+            customAssemblies: m.customAssemblies ?? [],
+            persistMeta: {
+              lastModifiedMs: m.lastModifiedMs ?? 0,
+              persistGeneration: m.persistGeneration ?? 0,
+            },
+          });
+        } catch {
+          // ignore IndexedDB read errors
+        }
+      })();
+    }
   },
 
   setProjectName: (projectName) =>
@@ -298,9 +401,41 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
       estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({ ...e, markupPercent })),
     })),
 
+  setMarkupMode: (markupMode) =>
+    set((s) => ({
+      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({
+        ...e,
+        markupMode,
+        markupTiers:
+          markupMode === "flat" ? [] : e.markupTiers?.length ? e.markupTiers : [{ upto: null, percent: e.markupPercent }],
+      })),
+    })),
+
+  setMarkupTiers: (markupTiers) =>
+    set((s) => ({
+      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({
+        ...e,
+        markupTiers: markupTiers.map((t) => ({
+          upto: t.upto,
+          percent: Number.isFinite(Number(t.percent)) ? Number(t.percent) : 0,
+        })),
+        markupMode: "tiered",
+      })),
+    })),
+
   setTaxPercent: (taxPercent) =>
     set((s) => ({
       estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({ ...e, taxPercent })),
+    })),
+
+  setTaxScope: (taxScope) =>
+    set((s) => ({
+      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({ ...e, taxScope })),
+    })),
+
+  setJurisdictionLabel: (jurisdictionLabel) =>
+    set((s) => ({
+      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({ ...e, jurisdictionLabel })),
     })),
 
   setOverheadPercent: (overheadPercent) =>
@@ -511,7 +646,7 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
   },
 
   insertAssembly: (assemblyId) => {
-    const def = ASSEMBLIES.find((x) => x.id === assemblyId);
+    const def = assemblyCatalog(get()).find((x) => x.id === assemblyId);
     if (!def) return;
     const kitId = newId();
     set((s) => {
@@ -611,6 +746,31 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
       ui: { ...s.ui, onboardingComplete: complete },
     })),
 
+  setOnboardingChecklist: (patch) =>
+    set((s) => ({
+      ui: {
+        ...s.ui,
+        onboardingChecklist: {
+          ...defaultOnboardingChecklist,
+          ...s.ui.onboardingChecklist,
+          ...patch,
+        },
+      },
+    })),
+
+  upsertCustomAssembly: (def) =>
+    set((s) => {
+      const next = s.customAssemblies.filter((x) => x.id !== def.id);
+      return {
+        customAssemblies: [{ ...def, id: def.id.trim() || newId() }, ...next].slice(0, 200),
+      };
+    }),
+
+  removeCustomAssembly: (id) =>
+    set((s) => ({
+      customAssemblies: s.customAssemblies.filter((x) => x.id !== id),
+    })),
+
   addAlternateSection: () =>
     set((s) => ({
       estimates: mapActive(s.estimates, s.activeEstimateId, (e) => {
@@ -626,6 +786,22 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
       estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({
         ...e,
         sections: e.sections.map((sec) => (sec.id === sectionId ? { ...sec, label } : sec)),
+      })),
+    })),
+
+  setSectionSchedule: (sectionId, startDate, endDate) =>
+    set((s) => ({
+      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({
+        ...e,
+        sections: e.sections.map((sec) =>
+          sec.id === sectionId
+            ? {
+                ...sec,
+                startDate: startDate.trim() || undefined,
+                endDate: endDate.trim() || undefined,
+              }
+            : sec,
+        ),
       })),
     })),
 
@@ -739,15 +915,29 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
     return { ok: true, imported };
   },
 
-  importPersistJson: (json) => {
+  importPersistJson: (json, options) => {
     try {
-      const data = JSON.parse(json) as unknown;
-      if (!data || typeof data !== "object") return { ok: false, error: "Invalid JSON." };
-      const obj = data as AppPersist & { version?: number };
-      if ((obj.version !== 2 && obj.version !== 3) || !Array.isArray(obj.estimates)) {
-        return { ok: false, error: "Unrecognized backup format (expected app v2 or v3)." };
+      const normalized = parsePersistJsonString(json);
+      if (!normalized) {
+        return { ok: false, error: "Unrecognized backup format (expected app v2–v4)." };
       }
-      const normalized = normalizeAppPersist(obj);
+      const cur = get().persistMeta;
+      const backupMs = normalized.lastModifiedMs ?? 0;
+      const backupGen = normalized.persistGeneration ?? 0;
+      const backupIsOlder =
+        backupMs < cur.lastModifiedMs ||
+        (backupMs === cur.lastModifiedMs && backupGen < cur.persistGeneration);
+      if (backupIsOlder && !options?.force) {
+        return {
+          ok: false,
+          error: "This backup is older than your current workspace.",
+          staleBackup: true,
+        };
+      }
+      const cl = {
+        ...defaultOnboardingChecklist,
+        ...(normalized.ui?.onboardingChecklist ?? {}),
+      };
       set({
         estimates: normalized.estimates,
         activeEstimateId: normalized.activeEstimateId,
@@ -757,9 +947,15 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
           lineFilter: normalized.ui?.lineFilter ?? "",
           collapsedLineIds: normalized.ui?.collapsedLineIds ?? [],
           onboardingComplete: Boolean(normalized.ui?.onboardingComplete),
+          onboardingChecklist: cl,
         },
         branding: { ...defaultBranding, ...normalized.branding },
         savedLineLibrary: normalized.savedLineLibrary ?? [],
+        customAssemblies: normalized.customAssemblies ?? [],
+        persistMeta: {
+          lastModifiedMs: normalized.lastModifiedMs ?? Date.now(),
+          persistGeneration: normalized.persistGeneration ?? 1,
+        },
         undoStack: [],
         hydrated: true,
         saveStatus: "saved",
@@ -779,6 +975,7 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
   },
 
   clearAllData: () => {
+    void idbClearApp();
     clearAllAppStorage();
     const p = createDefaultAppPersist();
     set({
@@ -789,6 +986,11 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
       ui: { ...defaultUiState },
       branding: p.branding ? { ...defaultBranding, ...p.branding } : { ...defaultBranding },
       savedLineLibrary: p.savedLineLibrary ?? [],
+      customAssemblies: p.customAssemblies ?? [],
+      persistMeta: {
+        lastModifiedMs: p.lastModifiedMs ?? Date.now(),
+        persistGeneration: p.persistGeneration ?? 1,
+      },
       undoStack: [],
       saveStatus: "idle",
       saveErrorMessage: null,

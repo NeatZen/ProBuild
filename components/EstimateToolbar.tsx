@@ -50,6 +50,7 @@ export function EstimateToolbar({ onAddLine, onExportCsv, onPrint, onExportPdf, 
   const insertTemplate = useProBuildStore((s) => s.insertTemplate);
   const insertAssembly = useProBuildStore((s) => s.insertAssembly);
   const addAlternateSection = useProBuildStore((s) => s.addAlternateSection);
+  const customAssemblies = useProBuildStore((s) => s.customAssemblies);
   const d = useDensityClasses();
   const exportPdf = onExportPdf ?? onPrint;
 
@@ -115,6 +116,11 @@ export function EstimateToolbar({ onAddLine, onExportCsv, onPrint, onExportPdf, 
             {ASSEMBLIES.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
+              </option>
+            ))}
+            {customAssemblies.map((a) => (
+              <option key={a.id} value={a.id}>
+                Custom · {a.name}
               </option>
             ))}
           </select>

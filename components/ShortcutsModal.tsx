@@ -9,6 +9,7 @@ type Props = {
 
 const ROWS: { keys: string; desc: string }[] = [
   { keys: "⌘/Ctrl+N", desc: "Add a new line item" },
+  { keys: "⌘/Ctrl+K", desc: "Command palette (quick actions)" },
   { keys: "Escape", desc: "Clear the line search filter" },
   { keys: "?", desc: "Open this shortcuts reference" },
   { keys: "G then T", desc: "Focus totals panel (tap sequence)" },

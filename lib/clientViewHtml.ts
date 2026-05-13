@@ -32,8 +32,20 @@ export function buildClientViewHtml(
   const tagline = branding?.companyTagline?.trim() ?? "";
   const terms = branding?.proposalTerms?.trim() ?? "";
   const logo = branding?.logoDataUrl?.trim() ?? "";
+  const license = branding?.contractorLicense?.trim() ?? "";
+  const insurance = branding?.insuranceSummary?.trim() ?? "";
+  const acceptanceIntro = branding?.acceptanceIntro?.trim() ?? "";
 
-  const sectionLabel = (id: string) => estimate.sections.find((s) => s.id === id)?.label ?? "—";
+  const sectionLabel = (id: string) => {
+    const s = estimate.sections.find((x) => x.id === id);
+    if (!s) return "—";
+    let t = s.label;
+    if (s.startDate || s.endDate) {
+      const range = [s.startDate, s.endDate].filter(Boolean).join(" → ");
+      if (range) t += ` (${range})`;
+    }
+    return t;
+  };
 
   const rows = estimate.lines
     .map((line) => {
@@ -95,6 +107,13 @@ export function buildClientViewHtml(
     ${brandHeader}
     <h1>${escapeHtml(company ? `${company} — ${title}` : title)}</h1>
     <p class="muted">Read-only client view · generated locally</p>
+    ${
+      license || insurance
+        ? `<div class="notes"><strong>License &amp; coverage</strong><br/>${
+            license ? `${escapeHtml(license)}<br/>` : ""
+          }${insurance ? escapeHtml(insurance) : ""}</div>`
+        : ""
+    }
     <table>
       <thead><tr><th>Description</th><th>Category</th><th>Type</th><th>Section</th><th class="num">Qty</th><th>Unit</th><th class="num">Unit cost</th><th class="num">Extended</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -122,6 +141,11 @@ export function buildClientViewHtml(
         ? `<div class="notes" style="border-top:1px solid #e7e5e4;padding-top:14px;margin-top:18px;"><strong>Terms &amp; conditions</strong><br/>${escapeHtml(terms)}</div>`
         : ""
     }
+    <div class="notes" style="border:1px dashed #d6d3d1;border-radius:12px;padding:14px;margin-top:16px;">
+      <strong>Authorization</strong><br/>
+      ${acceptanceIntro ? `${escapeHtml(acceptanceIntro)}<br/><br/>` : ""}
+      Client / owner signature: __________________________ &nbsp; Date: _______________
+    </div>
   </div>
   <footer>ProBuild estimate export · totals computed at export time.</footer>
   <script type="application/json" id="pb-data">${json}</script>

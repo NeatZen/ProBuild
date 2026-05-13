@@ -7,7 +7,14 @@ import { validateEstimate } from "@/lib/estimateValidation";
 import { defaultCsvFilename, estimateToCsv } from "@/lib/csvExport";
 import { downloadTextFile } from "@/lib/downloadText";
 import type { LineItem } from "@/lib/estimateTypes";
-import { debounce, DEBOUNCE_MS, saveAppPersistToStorage } from "@/lib/persistence";
+import {
+  APP_STORAGE_KEY,
+  debounce,
+  DEBOUNCE_MS,
+  saveAppPersistToStorage,
+} from "@/lib/persistence";
+import { idbWriteApp } from "@/lib/idbApp";
+import { getStrings } from "@/lib/strings";
 import {
   persistSnapshot,
   selectActiveEstimate,
@@ -16,16 +23,20 @@ import {
 
 import { AppFooterNotes } from "./AppFooterNotes";
 import { BrandingBar } from "./BrandingBar";
+import { CommandPalette } from "./CommandPalette";
+import { CustomAssembliesPanel } from "./CustomAssembliesPanel";
 import { EmptyEstimateTips } from "./EmptyEstimateTips";
 import { EstimateHeader } from "./EstimateHeader";
 import { EstimateToolbar } from "./EstimateToolbar";
 import { EstimatesShelf } from "./EstimatesShelf";
 import { LineItemRow } from "./LineItemRow";
 import { LineLibraryPanel } from "./LineLibraryPanel";
+import { OnboardingChecklistBar } from "./OnboardingChecklistBar";
 import { OnboardingModal } from "./OnboardingModal";
 import { PanelErrorBoundary } from "./PanelErrorBoundary";
 import { SaveStatusBadge } from "./SaveStatusBadge";
 import { ShortcutsModal } from "./ShortcutsModal";
+import { StorageConflictBanner } from "./StorageConflictBanner";
 import { StorageQuotaBanner } from "./StorageQuotaBanner";
 import { ValidationBanner } from "./ValidationBanner";
 import { UndoToast } from "./UndoToast";
@@ -63,12 +74,24 @@ export function EstimateShell() {
   const resetCurrentEstimateWorkspace = useProBuildStore((s) => s.resetCurrentEstimateWorkspace);
   const setLineFilter = useProBuildStore((s) => s.setLineFilter);
   const setSectionLabel = useProBuildStore((s) => s.setSectionLabel);
+  const setSectionSchedule = useProBuildStore((s) => s.setSectionSchedule);
   const removeSection = useProBuildStore((s) => s.removeSection);
+  const locale = useProBuildStore((s) => s.settings.locale);
+  const t = useMemo(() => getStrings(locale), [locale]);
+
   useEffect(() => {
     const save = debounce(() => {
-      const state = useProBuildStore.getState();
-      if (!state.hydrated) return;
-      const ok = saveAppPersistToStorage(persistSnapshot(state));
+      const stateBefore = useProBuildStore.getState();
+      if (!stateBefore.hydrated) return;
+      useProBuildStore.setState({
+        persistMeta: {
+          lastModifiedMs: Date.now(),
+          persistGeneration: stateBefore.persistMeta.persistGeneration + 1,
+        },
+      });
+      const persist = persistSnapshot(useProBuildStore.getState());
+      const ok = saveAppPersistToStorage(persist);
+      void idbWriteApp(JSON.stringify(persist)).catch(() => {});
       useProBuildStore.setState({
         saveStatus: ok ? "saved" : "error",
         saveErrorMessage: ok ? null : "Could not save to local storage.",
@@ -88,6 +111,16 @@ export function EstimateShell() {
     return () => {
       unsub();
     };
+  }, []);
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === APP_STORAGE_KEY && e.newValue != null) {
+        useProBuildStore.setState({ storageConflictWarning: true });
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   const query = lineFilter.trim().toLowerCase();
@@ -156,6 +189,7 @@ export function EstimateShell() {
 
   return (
     <div className="print-root relative flex min-h-0 flex-1 flex-col overflow-x-hidden text-stone-900">
+      <StorageConflictBanner />
       <a href="#totals-panel-start" className="skip-link">
         Skip to totals
       </a>
@@ -182,16 +216,16 @@ export function EstimateShell() {
                   ProBuild
                 </p>
                 <span className="hidden h-px w-8 bg-stone-200 sm:inline" aria-hidden />
-                <p className="hidden text-[11px] font-medium text-stone-400 sm:inline">Estimate workspace</p>
+                <p className="hidden text-[11px] font-medium text-stone-400 sm:inline">{t.workspaceLabel}</p>
               </div>
               <h1
                 data-testid="page-title"
                 className={`${displayHeadingClass} mt-1.5 text-balance text-2xl sm:text-[1.625rem] sm:leading-snug`}
               >
-                Construction estimate
+                {t.appTitle}
               </h1>
               <p className="mt-2 max-w-xl text-pretty text-sm leading-relaxed text-stone-600">
-                Line items, categories, and totals—saved on this device as you work.
+                {t.tagline}
               </p>
             </div>
           </div>
@@ -209,6 +243,7 @@ export function EstimateShell() {
         className={`relative mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 ${d.shellMainPt} ${d.shellMainPb}`}
       >
         <StorageQuotaBanner />
+        <OnboardingChecklistBar />
         <ValidationBanner warnings={validateEstimate(estimate)} />
         <RevisionHistoryLazy />
         <EstimateHeader />
@@ -225,6 +260,8 @@ export function EstimateShell() {
         </nav>
 
         <LineLibraryPanel />
+
+        <CustomAssembliesPanel />
 
         <EmptyEstimateTips estimate={estimate} />
 
@@ -288,6 +325,33 @@ export function EstimateShell() {
                           Remove scope
                         </button>
                       ) : null}
+                      <div className="flex flex-wrap gap-2 text-[11px] text-stone-600">
+                        <label className="sr-only" htmlFor={`sec-start-${sec.id}`}>
+                          Section start
+                        </label>
+                        <input
+                          id={`sec-start-${sec.id}`}
+                          type="date"
+                          value={sec.startDate ?? ""}
+                          onChange={(e) =>
+                            setSectionSchedule(sec.id, e.target.value, sec.endDate ?? "")
+                          }
+                          className="rounded border border-stone-200 bg-white px-2 py-1"
+                        />
+                        <span className="self-center">→</span>
+                        <label className="sr-only" htmlFor={`sec-end-${sec.id}`}>
+                          Section end
+                        </label>
+                        <input
+                          id={`sec-end-${sec.id}`}
+                          type="date"
+                          value={sec.endDate ?? ""}
+                          onChange={(e) =>
+                            setSectionSchedule(sec.id, sec.startDate ?? "", e.target.value)
+                          }
+                          className="rounded border border-stone-200 bg-white px-2 py-1"
+                        />
+                      </div>
                     </div>
                     <div className={`flex flex-col ${d.lineStackGap}`}>
                       {rows.map((line) => (
@@ -317,6 +381,7 @@ export function EstimateShell() {
 
       {hydrated ? <OnboardingModal /> : null}
       <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <CommandPalette />
       <UndoToast />
     </div>
   );

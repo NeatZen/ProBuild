@@ -7,6 +7,11 @@ test("home loads with main heading and toolbar", async ({ page }) => {
   await expect(page.getByTestId("line-count-badge")).toBeVisible();
 });
 
+test("share page handles missing payload", async ({ page }) => {
+  await page.goto("/share", { waitUntil: "networkidle" });
+  await expect(page.getByText(/Missing share payload/i)).toBeVisible({ timeout: 60_000 });
+});
+
 test("insert assembly and add alternate scope", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
   await page.getByTestId("add-alternate-section").click();

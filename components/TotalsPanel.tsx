@@ -4,18 +4,30 @@ import { useMemo } from "react";
 
 import { estimateTotals, sectionSubtotals } from "@/lib/estimateMath";
 import { useMoneyFormatter } from "@/hooks/useMoneyFormatter";
-import type { CategoryMarkup } from "@/lib/estimateTypes";
+import type { CategoryMarkup, TaxScope } from "@/lib/estimateTypes";
 import { selectActiveEstimate, useProBuildStore } from "@/store/proBuildStore";
 
 import { cardSurfaceDock, headingClass, inputClass, labelClassCompact } from "@/lib/uiTokens";
 import { useDensityClasses } from "@/hooks/useDensityClasses";
+
+const TAX_SCOPE_LABELS: Record<TaxScope, string> = {
+  all: "Tax all (full pretax base)",
+  materials_equipment: "Tax materials & equipment share",
+  labor: "Tax labor share",
+  subcontractor: "Tax subcontractor share",
+  exclude_allowances: "Tax all except allowances",
+};
 
 export function TotalsPanel() {
   const estimate = useProBuildStore(selectActiveEstimate);
   const d = useDensityClasses();
   const dockInputClass = `${inputClass} ${d.dockFieldMinH}`;
   const setMarkupPercent = useProBuildStore((s) => s.setMarkupPercent);
+  const setMarkupMode = useProBuildStore((s) => s.setMarkupMode);
+  const setMarkupTiers = useProBuildStore((s) => s.setMarkupTiers);
   const setTaxPercent = useProBuildStore((s) => s.setTaxPercent);
+  const setTaxScope = useProBuildStore((s) => s.setTaxScope);
+  const setJurisdictionLabel = useProBuildStore((s) => s.setJurisdictionLabel);
   const setOverheadPercent = useProBuildStore((s) => s.setOverheadPercent);
   const setBondInsuranceFlat = useProBuildStore((s) => s.setBondInsuranceFlat);
   const setRetentionPercent = useProBuildStore((s) => s.setRetentionPercent);
@@ -102,6 +114,135 @@ export function TotalsPanel() {
                 </ul>
               </div>
             ) : null}
+
+            <div className="mt-3 rounded-lg border border-teal-700/15 bg-teal-50/40 px-3 py-2.5">
+              <p className="font-heading text-[11px] font-semibold uppercase tracking-wide text-stone-600">
+                Markup mode & tax basis
+              </p>
+              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div>
+                  <label className={labelClassCompact} htmlFor="markup-mode">
+                    Markup mode
+                  </label>
+                  <select
+                    id="markup-mode"
+                    value={estimate.markupMode}
+                    onChange={(e) => setMarkupMode(e.target.value as "flat" | "tiered")}
+                    className={`${dockInputClass} text-sm`}
+                  >
+                    <option value="flat">Flat % on adjusted subtotal</option>
+                    <option value="tiered">Tiered (marginal bands)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClassCompact} htmlFor="tax-scope">
+                    Tax scope (line-type share)
+                  </label>
+                  <select
+                    id="tax-scope"
+                    value={estimate.taxScope}
+                    onChange={(e) => setTaxScope(e.target.value as TaxScope)}
+                    className={`${dockInputClass} text-sm`}
+                  >
+                    {(Object.keys(TAX_SCOPE_LABELS) as TaxScope[]).map((k) => (
+                      <option key={k} value={k}>
+                        {TAX_SCOPE_LABELS[k]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={labelClassCompact} htmlFor="jurisdiction">
+                    Jurisdiction / tax notes
+                  </label>
+                  <input
+                    id="jurisdiction"
+                    value={estimate.jurisdictionLabel}
+                    onChange={(e) => setJurisdictionLabel(e.target.value)}
+                    placeholder="Optional: locality, material vs labor rules"
+                    className={`${dockInputClass} text-sm`}
+                  />
+                </div>
+              </div>
+
+              {estimate.markupMode === "tiered" ? (
+                <div className="mt-3 border-t border-teal-700/10 pt-3">
+                  <p className={labelClassCompact}>
+                    Marginal tiers — each row applies to the slice up to the cap; leave cap empty for all remaining
+                    dollars.
+                  </p>
+                  <ul className="mt-2 space-y-2">
+                    {estimate.markupTiers.map((tier, index) => (
+                      <li key={`tier-${index}`} className="flex flex-wrap items-end gap-2">
+                        <div className="min-w-[7rem] flex-1">
+                          <label className={labelClassCompact} htmlFor={`tier-cap-${index}`}>
+                            Cap ($)
+                          </label>
+                          <input
+                            id={`tier-cap-${index}`}
+                            type="number"
+                            inputMode="decimal"
+                            placeholder="∞"
+                            value={tier.upto == null ? "" : tier.upto}
+                            onChange={(e) => {
+                              const raw = e.target.value.trim();
+                              const next = estimate.markupTiers.map((t, i) =>
+                                i === index
+                                  ? {
+                                      ...t,
+                                      upto: raw === "" ? null : Number(raw),
+                                    }
+                                  : t,
+                              );
+                              setMarkupTiers(next);
+                            }}
+                            className={`${dockInputClass} font-mono text-sm tabular-nums`}
+                          />
+                        </div>
+                        <div className="w-24">
+                          <label className={labelClassCompact} htmlFor={`tier-pct-${index}`}>
+                            %
+                          </label>
+                          <input
+                            id={`tier-pct-${index}`}
+                            type="number"
+                            inputMode="decimal"
+                            step="0.1"
+                            value={tier.percent}
+                            onChange={(e) => {
+                              const next = estimate.markupTiers.map((t, i) =>
+                                i === index ? { ...t, percent: Number(e.target.value) } : t,
+                              );
+                              setMarkupTiers(next);
+                            }}
+                            className={`${dockInputClass} font-mono text-sm tabular-nums`}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className="mb-0.5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-stone-200 bg-white text-sm text-rose-800"
+                          onClick={() =>
+                            setMarkupTiers(estimate.markupTiers.filter((_, i) => i !== index))
+                          }
+                          aria-label={`Remove tier ${index + 1}`}
+                        >
+                          ×
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    className="mt-2 text-xs font-semibold text-teal-900 hover:underline"
+                    onClick={() =>
+                      setMarkupTiers([...estimate.markupTiers, { upto: null, percent: estimate.markupPercent }])
+                    }
+                  >
+                    + Add tier
+                  </button>
+                </div>
+              ) : null}
+            </div>
 
             <div className="mt-2 grid grid-cols-2 gap-2 sm:mt-4 sm:gap-4">
               <div>
@@ -285,6 +426,14 @@ export function TotalsPanel() {
                 <dt className="text-stone-600">Tax</dt>
                 <dd className="font-medium text-stone-900 font-mono">{formatMoney(totals.taxAmount)}</dd>
               </div>
+              {estimate.taxScope !== "all" ? (
+                <div className="flex justify-between gap-3 text-[11px] tabular-nums text-stone-500">
+                  <dt>Tax scope (adjusted subtotal)</dt>
+                  <dd className="font-mono">
+                    {(Math.round(totals.taxScopeFraction * 1000) / 10).toFixed(1)}%
+                  </dd>
+                </div>
+              ) : null}
               <div className="flex justify-between gap-3 tabular-nums">
                 <dt className="text-stone-600">Retention (hold)</dt>
                 <dd className="font-medium text-stone-900 font-mono">{formatMoney(totals.retentionAmount)}</dd>

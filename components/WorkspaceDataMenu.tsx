@@ -4,8 +4,10 @@ import { useState, useRef, type ChangeEvent } from "react";
 
 import { buildClientViewHtml, defaultClientViewFilename } from "@/lib/clientViewHtml";
 import { downloadTextFile } from "@/lib/downloadText";
+import { wrapPersistWithAudit } from "@/lib/exportAudit";
+import { encodeSharePayload, SHARE_URL_WARNING_LENGTH } from "@/lib/shareCodec";
 import { useDensityClasses } from "@/hooks/useDensityClasses";
-import { selectActiveEstimate, useProBuildStore } from "@/store/proBuildStore";
+import { persistSnapshot, selectActiveEstimate, useProBuildStore } from "@/store/proBuildStore";
 
 type Props = {
   onExportCsv: () => void;
@@ -15,7 +17,6 @@ export function WorkspaceDataMenu({ onExportCsv }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const importPersistJson = useProBuildStore((s) => s.importPersistJson);
   const importCsvText = useProBuildStore((s) => s.importCsvText);
-  const exportPersistJson = useProBuildStore((s) => s.exportPersistJson);
   const exportActiveEstimateJson = useProBuildStore((s) => s.exportActiveEstimateJson);
   const clearAllData = useProBuildStore((s) => s.clearAllData);
   const estimate = useProBuildStore(selectActiveEstimate);
@@ -30,6 +31,8 @@ export function WorkspaceDataMenu({ onExportCsv }: Props) {
   const tealBtn = `inline-flex items-center justify-center rounded-lg border border-teal-200 bg-teal-50 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-teal-900 shadow-sm hover:bg-teal-100/80 ${d.workspaceDataBtnH}`;
   const dangerBtn = `inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white px-2.5 text-[11px] font-semibold uppercase tracking-wide text-rose-900 shadow-sm hover:bg-rose-50 ${d.workspaceDataBtnH}`;
 
+  const setOnboardingChecklist = useProBuildStore((s) => s.setOnboardingChecklist);
+
   const onPickFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -37,6 +40,14 @@ export function WorkspaceDataMenu({ onExportCsv }: Props) {
     const text = await file.text();
     const res = importPersistJson(text);
     if (!res.ok) {
+      if (
+        res.staleBackup &&
+        window.confirm(`${res.error ?? ""} Replace your current workspace with this file anyway?`)
+      ) {
+        const forced = importPersistJson(text, { force: true });
+        if (!forced.ok) window.alert(forced.error ?? "Import failed.");
+        return;
+      }
       window.alert(res.error ?? "Import failed.");
     }
   };
@@ -49,7 +60,11 @@ export function WorkspaceDataMenu({ onExportCsv }: Props) {
       </button>
       <button
         type="button"
-        onClick={() => downloadTextFile("probuild-backup.json", exportPersistJson(), "application/json")}
+        onClick={() => {
+          const wrapped = wrapPersistWithAudit(persistSnapshot(useProBuildStore.getState()));
+          downloadTextFile("probuild-backup.json", wrapped, "application/json");
+          setOnboardingChecklist({ exportedOrBackup: true });
+        }}
         className={neutralBtn}
       >
         Export backup
@@ -69,13 +84,42 @@ export function WorkspaceDataMenu({ onExportCsv }: Props) {
       </button>
       <button
         type="button"
-        onClick={() =>
+        onClick={async () => {
+          try {
+            const token = await encodeSharePayload({
+              v: 1,
+              estimate,
+              branding,
+              locale,
+              currency,
+            });
+            const url = `${window.location.origin}/share?p=${encodeURIComponent(token)}`;
+            if (url.length > SHARE_URL_WARNING_LENGTH) {
+              window.alert(
+                "Share link is too long for a URL. Export client HTML instead, or reduce line count.",
+              );
+              return;
+            }
+            await navigator.clipboard.writeText(url);
+            window.alert("Share link copied. Recipients can open it read-only in any browser.");
+          } catch {
+            window.alert("Could not build share link.");
+          }
+        }}
+        className={tealBtn}
+      >
+        Copy share link
+      </button>
+      <button
+        type="button"
+        onClick={() => {
           downloadTextFile(
             defaultClientViewFilename(estimate),
             buildClientViewHtml(estimate, locale, currency, branding),
             "text/html;charset=utf-8",
-          )
-        }
+          );
+          setOnboardingChecklist({ exportedOrBackup: true });
+        }}
         className={tealBtn}
       >
         Client HTML

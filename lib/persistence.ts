@@ -2,7 +2,9 @@ import type {
   AppPersist,
   AppSettings,
   AppUiState,
+  CustomAssemblyDefinition,
   EstimateRevision,
+  OnboardingChecklistState,
   SavedLineTemplate,
   WorkspaceBranding,
 } from "./appTypes";
@@ -10,6 +12,7 @@ import {
   APP_SCHEMA_VERSION,
   defaultBranding,
   defaultSettings,
+  defaultOnboardingChecklist,
   defaultUiState,
   type CurrencyCode,
   type DensityMode,
@@ -19,7 +22,8 @@ import { normalizeEstimate } from "./estimateNormalize";
 import { createDefaultEstimate, type Estimate } from "./estimateTypes";
 
 export const LEGACY_STORAGE_KEY = "probuild-estimate-v1";
-export const APP_STORAGE_KEY = "probuild-app-v3";
+export const APP_STORAGE_KEY = "probuild-app-v4";
+export const APP_STORAGE_KEY_V3 = "probuild-app-v3";
 export const APP_STORAGE_KEY_LEGACY = "probuild-app-v2";
 
 export const DEBOUNCE_MS = 500;
@@ -83,7 +87,38 @@ function normalizeWorkspaceBranding(raw: unknown): WorkspaceBranding {
     companyTagline: typeof o.companyTagline === "string" ? o.companyTagline : "",
     proposalTerms: typeof o.proposalTerms === "string" ? o.proposalTerms : "",
     logoDataUrl: typeof o.logoDataUrl === "string" ? o.logoDataUrl : "",
+    contractorLicense:
+      typeof o.contractorLicense === "string" && o.contractorLicense.trim()
+        ? o.contractorLicense.trim()
+        : undefined,
+    insuranceSummary:
+      typeof o.insuranceSummary === "string" && o.insuranceSummary.trim()
+        ? o.insuranceSummary.trim()
+        : undefined,
+    acceptanceIntro:
+      typeof o.acceptanceIntro === "string" && o.acceptanceIntro.trim()
+        ? o.acceptanceIntro.trim()
+        : undefined,
   };
+}
+
+function normalizeCustomAssemblies(raw: unknown): CustomAssemblyDefinition[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CustomAssemblyDefinition[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const o = row as Record<string, unknown>;
+    if (typeof o.id !== "string" || !o.id) continue;
+    if (typeof o.name !== "string") continue;
+    if (!Array.isArray(o.lines)) continue;
+    out.push({
+      id: o.id,
+      name: o.name.trim() || "Kit",
+      description: typeof o.description === "string" ? o.description : "",
+      lines: o.lines.filter((x) => x && typeof x === "object") as CustomAssemblyDefinition["lines"],
+    });
+  }
+  return out.slice(0, 200);
 }
 
 function normalizeRevisionsMap(raw: unknown): Record<string, EstimateRevision[]> {
@@ -112,14 +147,24 @@ function normalizeRevisionsMap(raw: unknown): Record<string, EstimateRevision[]>
   return out;
 }
 
-function parseAppPersist(raw: string | null): AppPersist | null {
+function normalizeOnboardingChecklist(raw: unknown): Partial<OnboardingChecklistState> | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  const out: Partial<OnboardingChecklistState> = {};
+  for (const k of Object.keys(defaultOnboardingChecklist) as (keyof OnboardingChecklistState)[]) {
+    if (typeof o[k] === "boolean") out[k] = o[k];
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+function parseAppPersistVersion(raw: string | null): AppPersist | null {
   if (raw == null || raw === "") return null;
   try {
     const data = JSON.parse(raw) as unknown;
     if (!data || typeof data !== "object") return null;
     const obj = data as Record<string, unknown>;
     const v = obj.version;
-    if (v !== 2 && v !== 3) return null;
+    if (v !== 2 && v !== 3 && v !== 4) return null;
     if (!Array.isArray(obj.estimates) || typeof obj.activeEstimateId !== "string") return null;
     return data as AppPersist;
   } catch {
@@ -131,9 +176,23 @@ export function migrateLegacyIfNeeded(): void {
   if (typeof window === "undefined") return;
   if (window.localStorage.getItem(APP_STORAGE_KEY)) return;
 
+  const v3 = window.localStorage.getItem(APP_STORAGE_KEY_V3);
+  if (v3) {
+    const p = parseAppPersistVersion(v3);
+    if (p) {
+      const migrated = normalizeAppPersist(p);
+      try {
+        window.localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(migrated));
+      } catch {
+        // ignore
+      }
+      return;
+    }
+  }
+
   const legV2 = window.localStorage.getItem(APP_STORAGE_KEY_LEGACY);
   if (legV2) {
-    const p = parseAppPersist(legV2);
+    const p = parseAppPersistVersion(legV2);
     if (p) {
       const migrated = normalizeAppPersist(p);
       try {
@@ -157,6 +216,9 @@ export function migrateLegacyIfNeeded(): void {
     revisionsByEstimateId: {},
     branding: { ...defaultBranding },
     savedLineLibrary: [],
+    customAssemblies: [],
+    lastModifiedMs: Date.now(),
+    persistGeneration: 1,
   };
   try {
     window.localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(persist));
@@ -171,11 +233,15 @@ export function normalizeAppPersist(input: AppPersist): AppPersist {
     .map((e) => normalizeEstimate(e));
   const branding = normalizeWorkspaceBranding(input.branding);
   const savedLineLibrary = normalizeSavedLineLibrary(input.savedLineLibrary);
+  const customAssemblies = normalizeCustomAssemblies(input.customAssemblies);
+  const checklistMerge = normalizeOnboardingChecklist(input.ui?.onboardingChecklist);
+  const baseCheck = { ...defaultOnboardingChecklist, ...checklistMerge };
 
   const uiMerged: AppUiState = {
     lineFilter: input.ui?.lineFilter ?? "",
     collapsedLineIds: Array.isArray(input.ui?.collapsedLineIds) ? input.ui.collapsedLineIds : [],
     onboardingComplete: Boolean(input.ui?.onboardingComplete),
+    onboardingChecklist: baseCheck,
   };
 
   if (estimates.length === 0) {
@@ -191,6 +257,9 @@ export function normalizeAppPersist(input: AppPersist): AppPersist {
       revisionsByEstimateId: normalizeRevisionsMap(input.revisionsByEstimateId),
       branding,
       savedLineLibrary,
+      customAssemblies,
+      lastModifiedMs: input.lastModifiedMs ?? Date.now(),
+      persistGeneration: input.persistGeneration ?? 1,
     };
   }
   const activeOk = estimates.some((e) => e.id === input.activeEstimateId);
@@ -214,11 +283,15 @@ export function normalizeAppPersist(input: AppPersist): AppPersist {
     revisionsByEstimateId: normalizeRevisionsMap(input.revisionsByEstimateId),
     branding,
     savedLineLibrary,
+    customAssemblies,
+    lastModifiedMs: input.lastModifiedMs ?? 0,
+    persistGeneration: input.persistGeneration ?? 0,
   };
 }
 
 export function createDefaultAppPersist(): AppPersist {
   const e = createDefaultEstimate();
+  const now = Date.now();
   return {
     version: APP_SCHEMA_VERSION,
     estimates: [e],
@@ -228,6 +301,9 @@ export function createDefaultAppPersist(): AppPersist {
     revisionsByEstimateId: {},
     branding: { ...defaultBranding },
     savedLineLibrary: [],
+    customAssemblies: [],
+    lastModifiedMs: now,
+    persistGeneration: 1,
   };
 }
 
@@ -235,9 +311,10 @@ export function loadAppPersistFromStorage(): AppPersist | null {
   if (typeof window === "undefined") return null;
   try {
     migrateLegacyIfNeeded();
-    const raw =
-      window.localStorage.getItem(APP_STORAGE_KEY) ?? window.localStorage.getItem(APP_STORAGE_KEY_LEGACY);
-    return parseAppPersist(raw);
+    const raw = window.localStorage.getItem(APP_STORAGE_KEY);
+    const fallbackV3 =
+      raw ?? window.localStorage.getItem(APP_STORAGE_KEY_V3) ?? window.localStorage.getItem(APP_STORAGE_KEY_LEGACY);
+    return parseAppPersistVersion(fallbackV3);
   } catch {
     return null;
   }
@@ -247,6 +324,28 @@ export function loadOrCreateAppPersist(): AppPersist {
   const loaded = loadAppPersistFromStorage();
   if (loaded) return normalizeAppPersist(loaded);
   return createDefaultAppPersist();
+}
+
+/** Parse and normalize a workspace JSON backup / IndexedDB blob. */
+export function parsePersistJsonString(raw: string): AppPersist | null {
+  try {
+    const data = JSON.parse(raw) as unknown;
+    if (!data || typeof data !== "object") return null;
+    const o = data as Record<string, unknown>;
+    if (o.workspace && typeof o.workspace === "object") {
+      const inner = o.workspace as Record<string, unknown>;
+      const v = inner.version;
+      if (v !== 2 && v !== 3 && v !== 4) return null;
+      if (!Array.isArray(inner.estimates) || typeof inner.activeEstimateId !== "string") return null;
+      return normalizeAppPersist(inner as AppPersist);
+    }
+    const v = o.version;
+    if (v !== 2 && v !== 3 && v !== 4) return null;
+    if (!Array.isArray(o.estimates) || typeof o.activeEstimateId !== "string") return null;
+    return normalizeAppPersist(data as AppPersist);
+  } catch {
+    return null;
+  }
 }
 
 export function saveAppPersistToStorage(persist: AppPersist): boolean {
@@ -276,6 +375,7 @@ export function clearAllAppStorage(): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(APP_STORAGE_KEY);
+    window.localStorage.removeItem(APP_STORAGE_KEY_V3);
     window.localStorage.removeItem(APP_STORAGE_KEY_LEGACY);
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
   } catch {

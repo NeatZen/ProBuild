@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { createDefaultAppPersist } from "@/lib/persistence";
-import { defaultBranding, defaultUiState } from "@/lib/appTypes";
+import { defaultBranding, defaultOnboardingChecklist, defaultUiState } from "@/lib/appTypes";
 import { useProBuildStore } from "@/store/proBuildStore";
 
 describe("useProBuildStore", () => {
@@ -12,9 +12,15 @@ describe("useProBuildStore", () => {
       activeEstimateId: seed.activeEstimateId,
       revisionsByEstimateId: seed.revisionsByEstimateId ?? {},
       settings: seed.settings,
-      ui: { ...defaultUiState },
+      ui: { ...defaultUiState, onboardingChecklist: { ...defaultOnboardingChecklist } },
       branding: seed.branding ? { ...defaultBranding, ...seed.branding } : { ...defaultBranding },
       savedLineLibrary: seed.savedLineLibrary ?? [],
+      customAssemblies: seed.customAssemblies ?? [],
+      persistMeta: {
+        lastModifiedMs: seed.lastModifiedMs ?? Date.now(),
+        persistGeneration: seed.persistGeneration ?? 1,
+      },
+      storageConflictWarning: false,
       undoStack: [],
       saveStatus: "idle",
       saveErrorMessage: null,

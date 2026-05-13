@@ -67,6 +67,43 @@ export function BrandingBar() {
             placeholder="Licensed & insured"
           />
         </div>
+        <div>
+          <label className={labelClass} htmlFor="brand-license">
+            Contractor license #
+          </label>
+          <input
+            id="brand-license"
+            value={branding.contractorLicense ?? ""}
+            onChange={(e) => setBranding({ contractorLicense: e.target.value })}
+            className={`${inputClass} ${d.formFieldMinH}`}
+            placeholder="Optional — shown on client export"
+          />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="brand-ins">
+            Insurance summary
+          </label>
+          <input
+            id="brand-ins"
+            value={branding.insuranceSummary ?? ""}
+            onChange={(e) => setBranding({ insuranceSummary: e.target.value })}
+            className={`${inputClass} ${d.formFieldMinH}`}
+            placeholder="GL / WC carrier & limits"
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className={labelClass} htmlFor="brand-accept">
+            Acceptance intro
+          </label>
+          <textarea
+            id="brand-accept"
+            value={branding.acceptanceIntro ?? ""}
+            onChange={(e) => setBranding({ acceptanceIntro: e.target.value })}
+            rows={2}
+            className={`${inputClass} min-h-[3.5rem] py-2`}
+            placeholder="Text above client signature / acceptance block"
+          />
+        </div>
         <div className="sm:col-span-2">
           <label className={labelClass} htmlFor="brand-terms">
             Proposal terms / disclaimer

@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import type { LineItem, LineType } from "@/lib/estimateTypes";
 import { lineExtended } from "@/lib/estimateMath";
+import { applyWasteSf, grossSfFromLfHeight, roundQuantity, type RoundMode } from "@/lib/takeoffMath";
 import { cardSurfaceElevated, inputClass, labelClass } from "@/lib/uiTokens";
 import { useDensityClasses } from "@/hooks/useDensityClasses";
 import { useMoneyFormatter } from "@/hooks/useMoneyFormatter";
@@ -65,6 +66,8 @@ type Props = {
 export function LineItemRow({ line, index, totalLines, searchMatch, searchActive }: Props) {
   const formatMoney = useMoneyFormatter();
   const setLine = useProBuildStore((s) => s.setLine);
+  const setOnboardingChecklist = useProBuildStore((s) => s.setOnboardingChecklist);
+  const [roundMode, setRoundMode] = useState<RoundMode>("whole");
   const removeLine = useProBuildStore((s) => s.removeLine);
   const moveLine = useProBuildStore((s) => s.moveLine);
   const duplicateLine = useProBuildStore((s) => s.duplicateLine);
@@ -215,7 +218,12 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
           <input
             id={`desc-${line.id}`}
             value={line.description}
-            onChange={(e) => setLine(line.id, { description: e.target.value })}
+            onChange={(e) => {
+              setLine(line.id, { description: e.target.value });
+              if (e.target.value.trim()) {
+                setOnboardingChecklist({ addedDetailLine: true });
+              }
+            }}
             placeholder="Scope of work"
             className={`${inputClass} ${d.formFieldMinH}`}
           />
@@ -328,6 +336,148 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
             </p>
           </div>
         </div>
+
+        <details className="rounded-lg border border-stone-200 bg-stone-50/40 p-3">
+          <summary className="cursor-pointer text-xs font-semibold text-stone-700">Takeoff & notes</summary>
+          <div className="mt-3 space-y-3">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div>
+                <label className={labelClass} htmlFor={`to-lf-${line.id}`}>
+                  LF
+                </label>
+                <input
+                  id={`to-lf-${line.id}`}
+                  type="number"
+                  inputMode="decimal"
+                  value={line.takeoff?.lf ?? ""}
+                  onChange={(e) =>
+                    setLine(line.id, {
+                      takeoff: {
+                        ...line.takeoff,
+                        lf: e.target.value === "" ? undefined : Number(e.target.value),
+                        heightFt: line.takeoff?.heightFt,
+                        wastePercent: line.takeoff?.wastePercent,
+                      },
+                    })
+                  }
+                  className={`${inputClass} font-mono text-sm tabular-nums`}
+                  placeholder="—"
+                />
+              </div>
+              <div>
+                <label className={labelClass} htmlFor={`to-h-${line.id}`}>
+                  Height (ft)
+                </label>
+                <input
+                  id={`to-h-${line.id}`}
+                  type="number"
+                  inputMode="decimal"
+                  value={line.takeoff?.heightFt ?? ""}
+                  onChange={(e) =>
+                    setLine(line.id, {
+                      takeoff: {
+                        ...line.takeoff,
+                        lf: line.takeoff?.lf,
+                        heightFt: e.target.value === "" ? undefined : Number(e.target.value),
+                        wastePercent: line.takeoff?.wastePercent,
+                      },
+                    })
+                  }
+                  className={`${inputClass} font-mono text-sm tabular-nums`}
+                  placeholder="—"
+                />
+              </div>
+              <div>
+                <label className={labelClass} htmlFor={`to-w-${line.id}`}>
+                  Waste %
+                </label>
+                <input
+                  id={`to-w-${line.id}`}
+                  type="number"
+                  inputMode="decimal"
+                  value={line.takeoff?.wastePercent ?? ""}
+                  onChange={(e) =>
+                    setLine(line.id, {
+                      takeoff: {
+                        ...line.takeoff,
+                        lf: line.takeoff?.lf,
+                        heightFt: line.takeoff?.heightFt,
+                        wastePercent: e.target.value === "" ? undefined : Number(e.target.value),
+                      },
+                    })
+                  }
+                  className={`${inputClass} font-mono text-sm tabular-nums`}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className={labelClass} htmlFor={`to-r-${line.id}`}>
+                  Round
+                </label>
+                <select
+                  id={`to-r-${line.id}`}
+                  value={roundMode}
+                  onChange={(e) => setRoundMode(e.target.value as RoundMode)}
+                  className={`${inputClass} text-sm`}
+                >
+                  <option value="none">Exact</option>
+                  <option value="whole">Whole SF</option>
+                  <option value="half">½ SF</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-teal-600/40 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-900 hover:bg-teal-100"
+                onClick={() => {
+                  const lf = Number(line.takeoff?.lf);
+                  const h = Number(line.takeoff?.heightFt);
+                  const waste = Number(line.takeoff?.wastePercent ?? 0);
+                  if (!Number.isFinite(lf) || !Number.isFinite(h) || lf <= 0 || h <= 0) return;
+                  const gross = grossSfFromLfHeight(lf, h);
+                  const sf = applyWasteSf(gross, waste);
+                  const qty = roundQuantity(sf, roundMode);
+                  setLine(line.id, { quantity: qty, unit: line.unit?.trim() ? line.unit : "SF" });
+                  setOnboardingChecklist({ addedDetailLine: true });
+                }}
+              >
+                Apply LF×height → qty
+              </button>
+              <span className="text-[11px] text-stone-500">
+                Gross SF{" "}
+                {(() => {
+                  const lf = Number(line.takeoff?.lf);
+                  const h = Number(line.takeoff?.heightFt);
+                  if (!Number.isFinite(lf) || !Number.isFinite(h)) return "—";
+                  return grossSfFromLfHeight(lf, h).toFixed(2);
+                })()}
+              </span>
+            </div>
+            <div>
+              <label className={labelClass} htmlFor={`note-${line.id}`}>
+                Internal note
+              </label>
+              <textarea
+                id={`note-${line.id}`}
+                value={line.internalNote ?? ""}
+                onChange={(e) => setLine(line.id, { internalNote: e.target.value })}
+                rows={2}
+                placeholder="Estimator-only (not on client view)"
+                className={`${inputClass} text-sm leading-relaxed`}
+              />
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-amber-900">
+              <input
+                type="checkbox"
+                checked={Boolean(line.needsReview)}
+                onChange={(e) => setLine(line.id, { needsReview: e.target.checked })}
+                className="h-4 w-4 rounded border-stone-300"
+              />
+              Flag for review / client question
+            </label>
+          </div>
+        </details>
       </div>
     </article>
   );

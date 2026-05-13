@@ -1,4 +1,12 @@
-import type { CategoryMarkup, Estimate, EstimateSection, LineItem } from "./estimateTypes";
+import type {
+  CategoryMarkup,
+  Estimate,
+  EstimateSection,
+  LineItem,
+  MarkupMode,
+  MarkupTier,
+  TaxScope,
+} from "./estimateTypes";
 
 /** Two-decimal currency rounding (half away from zero at .005). */
 export function roundMoney(value: number): number {
@@ -44,11 +52,77 @@ function categoryMarkupLookup(rows: CategoryMarkup[]): Map<string, number> {
   return m;
 }
 
+export function lineInTaxScope(line: LineItem, scope: TaxScope): boolean {
+  switch (scope) {
+    case "all":
+      return true;
+    case "materials_equipment":
+      return line.lineType === "material" || line.lineType === "equipment";
+    case "labor":
+      return line.lineType === "labor";
+    case "subcontractor":
+      return line.lineType === "subcontractor";
+    case "exclude_allowances":
+      return line.lineType !== "allowance";
+    default:
+      return true;
+  }
+}
+
+/** Sort tiers by cumulative ceiling ascending; null last. */
+export function sortMarkupTiers(tiers: MarkupTier[]): MarkupTier[] {
+  return [...tiers].sort((a, b) => {
+    const au = a.upto == null ? Infinity : a.upto;
+    const bu = b.upto == null ? Infinity : b.upto;
+    return au - bu;
+  });
+}
+
+/**
+ * Marginal markup on adjusted subtotal: each tier applies to the slice between the previous
+ * cumulative cap and this tier's upto (e.g. first 50k at 10%, next 150k at 8%, remainder at 5%).
+ */
+export function progressiveMarkupAmount(adjustedSubtotal: number, tiers: MarkupTier[]): number {
+  if (!Number.isFinite(adjustedSubtotal) || adjustedSubtotal <= 0) return 0;
+  const sorted = sortMarkupTiers(tiers).filter((t) => t.upto == null || t.upto > 0);
+  if (sorted.length === 0) return 0;
+
+  let remaining = adjustedSubtotal;
+  let prevCeiling = 0;
+  let markup = 0;
+  for (const t of sorted) {
+    const cap = t.upto == null ? Infinity : t.upto;
+    const bandWidth = Math.max(0, cap - prevCeiling);
+    const slice = Math.min(remaining, bandWidth);
+    if (slice > 0) {
+      markup += slice * (Number(t.percent) / 100);
+      remaining -= slice;
+    }
+    prevCeiling = cap;
+    if (remaining <= 0) break;
+  }
+  return roundMoney(markup);
+}
+
+export function resolveMarkupAmount(
+  adjustedSubtotal: number,
+  markupPercent: number,
+  markupMode: MarkupMode,
+  markupTiers: MarkupTier[],
+): number {
+  if (markupMode === "tiered" && markupTiers.length > 0) {
+    return progressiveMarkupAmount(adjustedSubtotal, markupTiers);
+  }
+  return roundMoney(adjustedSubtotal * (Number(markupPercent) / 100));
+}
+
 export type TotalsBreakdown = {
   /** Raw sum of line extensions (before per-category markups). */
   subtotal: number;
   /** After per-category markups (still before global markup). */
   adjustedSubtotal: number;
+  /** Share of adjusted subtotal that is in the selected tax scope (0–1). */
+  taxScopeFraction: number;
   markupAmount: number;
   overheadAmount: number;
   bondInsuranceFlat: number;
@@ -61,13 +135,16 @@ export type TotalsBreakdown = {
 };
 
 /**
- * Order: line subtotal → per-category % → global markup % → overhead % → flat bond/insurance
- * → tax % on pretax subtotal → grand total → retention % of grand → net due.
+ * Order: line subtotal → per-category % → global markup (flat or tiered) → overhead % → flat bond/insurance
+ * → tax % on pretax subtotal (optionally scoped) → grand total → retention % of grand → net due.
  */
 export function computeTotals(
   lines: LineItem[],
   markupPercent: number,
+  markupMode: MarkupMode,
+  markupTiers: MarkupTier[],
   taxPercent: number,
+  taxScope: TaxScope,
   overheadPercent: number,
   bondInsuranceFlat: number,
   retentionPercent: number,
@@ -91,13 +168,28 @@ export function computeTotals(
   }
   adjustedSubtotal = roundMoney(adjustedSubtotal);
 
-  const markup = roundMoney(adjustedSubtotal * (Number(markupPercent) / 100));
+  /** Per-line adjusted amounts for tax scope ratio. */
+  let scopeAdjusted = 0;
+  for (const line of lines) {
+    const cat = line.category.trim() || "Uncategorized";
+    const raw = lineExtended(line);
+    const p = mk.get(cat) ?? 0;
+    const adj = roundMoney(raw * (1 + p / 100));
+    if (lineInTaxScope(line, taxScope)) {
+      scopeAdjusted = roundMoney(scopeAdjusted + adj);
+    }
+  }
+  const taxScopeFraction =
+    adjustedSubtotal > 0 ? Math.min(1, Math.max(0, scopeAdjusted / adjustedSubtotal)) : taxScope === "all" ? 1 : 0;
+
+  const markup = resolveMarkupAmount(adjustedSubtotal, markupPercent, markupMode, markupTiers);
   const afterMarkup = roundMoney(adjustedSubtotal + markup);
   const overhead = roundMoney(afterMarkup * (Number(overheadPercent) / 100));
   const afterOverhead = roundMoney(afterMarkup + overhead);
   const bond = roundMoney(Number(bondInsuranceFlat));
   const taxableBase = roundMoney(afterOverhead + bond);
-  const tax = roundMoney(taxableBase * (Number(taxPercent) / 100));
+  const taxBaseScoped = roundMoney(taxableBase * taxScopeFraction);
+  const tax = roundMoney(taxBaseScoped * (Number(taxPercent) / 100));
   const grandTotal = roundMoney(taxableBase + tax);
   const retention = roundMoney(grandTotal * (Number(retentionPercent) / 100));
   const netDue = roundMoney(grandTotal - retention);
@@ -105,6 +197,7 @@ export function computeTotals(
   return {
     subtotal: rawSubtotal,
     adjustedSubtotal,
+    taxScopeFraction,
     markupAmount: markup,
     overheadAmount: overhead,
     bondInsuranceFlat: bond,
@@ -122,7 +215,10 @@ export function estimateTotals(
     Estimate,
     | "lines"
     | "markupPercent"
+    | "markupMode"
+    | "markupTiers"
     | "taxPercent"
+    | "taxScope"
     | "overheadPercent"
     | "bondInsuranceFlat"
     | "retentionPercent"
@@ -132,7 +228,10 @@ export function estimateTotals(
   return computeTotals(
     estimate.lines,
     estimate.markupPercent,
+    estimate.markupMode ?? "flat",
+    estimate.markupTiers ?? [],
     estimate.taxPercent,
+    estimate.taxScope ?? "all",
     estimate.overheadPercent ?? 0,
     estimate.bondInsuranceFlat ?? 0,
     estimate.retentionPercent ?? 0,

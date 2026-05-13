@@ -35,7 +35,12 @@ export function EstimateHeader() {
             id="project-name"
             name="projectName"
             value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
+            onChange={(e) => {
+              setProjectName(e.target.value);
+              if (e.target.value.trim()) {
+                useProBuildStore.getState().setOnboardingChecklist({ namedProject: true });
+              }
+            }}
             placeholder="e.g. Oak St. kitchen remodel"
             className={`${inputClass} ${d.formFieldMinH}`}
             autoComplete="off"

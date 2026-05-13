@@ -1,4 +1,12 @@
-import type { Estimate, EstimateSection, LineItem, LineType } from "./estimateTypes";
+import type {
+  Estimate,
+  EstimateSection,
+  LineItem,
+  LineType,
+  MarkupMode,
+  MarkupTier,
+  TaxScope,
+} from "./estimateTypes";
 import {
   ESTIMATE_SCHEMA_VERSION,
   createEmptyLineItem,
@@ -37,7 +45,39 @@ function normalizeSection(raw: unknown): EstimateSection | null {
   if (typeof o.id !== "string" || !o.id) return null;
   const label = typeof o.label === "string" ? o.label : "Section";
   const kind = o.kind === "alternate" ? "alternate" : "base";
-  return { id: o.id, label, kind };
+  const startDate = typeof o.startDate === "string" ? o.startDate : undefined;
+  const endDate = typeof o.endDate === "string" ? o.endDate : undefined;
+  return { id: o.id, label, kind, startDate, endDate };
+}
+
+const TAX_SCOPES: TaxScope[] = [
+  "all",
+  "materials_equipment",
+  "labor",
+  "subcontractor",
+  "exclude_allowances",
+];
+
+function normalizeTaxScope(v: unknown): TaxScope {
+  if (typeof v === "string" && TAX_SCOPES.includes(v as TaxScope)) return v as TaxScope;
+  return "all";
+}
+
+function normalizeMarkupMode(v: unknown): MarkupMode {
+  return v === "tiered" ? "tiered" : "flat";
+}
+
+function normalizeMarkupTiers(raw: unknown): MarkupTier[] {
+  if (!Array.isArray(raw)) return [];
+  const out: MarkupTier[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as Record<string, unknown>;
+    const upto = r.upto === null || r.upto === undefined ? null : coalesceNum(r.upto, 0);
+    const percent = coalesceNum(r.percent, 0);
+    out.push({ upto, percent });
+  }
+  return out.slice(0, 20);
 }
 
 function normalizeSections(raw: unknown): EstimateSection[] {
@@ -56,6 +96,19 @@ export function normalizeLineItem(raw: unknown, defaultSectionId: string): LineI
   if (typeof o.id !== "string" || !o.id) return null;
   const sectionId =
     typeof o.sectionId === "string" && o.sectionId.trim() ? o.sectionId : defaultSectionId;
+  const internalNote = typeof o.internalNote === "string" ? o.internalNote : undefined;
+  const needsReview = Boolean(o.needsReview);
+  let takeoff: LineItem["takeoff"];
+  if (o.takeoff && typeof o.takeoff === "object") {
+    const t = o.takeoff as Record<string, unknown>;
+    takeoff = {
+      lf: Number.isFinite(Number(t.lf)) ? Number(t.lf) : undefined,
+      heightFt: Number.isFinite(Number(t.heightFt)) ? Number(t.heightFt) : undefined,
+      wastePercent: Number.isFinite(Number(t.wastePercent)) ? Number(t.wastePercent) : undefined,
+    };
+    if (!takeoff.lf && !takeoff.heightFt && takeoff.wastePercent === undefined) takeoff = undefined;
+  }
+
   return {
     id: o.id,
     description: typeof o.description === "string" ? o.description : "",
@@ -67,6 +120,9 @@ export function normalizeLineItem(raw: unknown, defaultSectionId: string): LineI
     kitName: typeof o.kitName === "string" && o.kitName ? o.kitName : undefined,
     lineType: normalizeLineType(o.lineType),
     sectionId,
+    internalNote,
+    needsReview: needsReview || undefined,
+    takeoff,
   };
 }
 
@@ -114,13 +170,19 @@ export function normalizeEstimate(raw: unknown): Estimate {
   const safeLines =
     fixedLines.length > 0 ? fixedLines : [createEmptyLineItem(newId(), primarySectionId)];
 
+  const jurisdictionLabel = typeof o.jurisdictionLabel === "string" ? o.jurisdictionLabel : "";
+
   return {
     version: ESTIMATE_SCHEMA_VERSION,
     id,
     projectName: typeof o.projectName === "string" ? o.projectName : "",
     clientNotes: typeof o.clientNotes === "string" ? o.clientNotes : "",
     markupPercent: coalesceNum(o.markupPercent, 0),
+    markupMode: normalizeMarkupMode(o.markupMode),
+    markupTiers: normalizeMarkupTiers(o.markupTiers),
     taxPercent: coalesceNum(o.taxPercent, 0),
+    taxScope: normalizeTaxScope(o.taxScope),
+    jurisdictionLabel,
     overheadPercent: coalesceNum(o.overheadPercent, 0),
     bondInsuranceFlat: coalesceNum(o.bondInsuranceFlat, 0),
     retentionPercent: coalesceNum(o.retentionPercent, 0),
