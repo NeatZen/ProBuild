@@ -51,7 +51,7 @@ export function RevisionHistory() {
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Before pricing meeting"
-              className="min-h-11 min-w-0 flex-1 rounded-xl border border-stone-200/90 bg-white/[0.88] px-3 py-2 text-sm text-stone-900 shadow-sm outline-none focus-visible:border-teal-400 focus-visible:ring-2 focus-visible:ring-teal-500/20"
+              className="min-h-11 min-w-0 flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 shadow-sm outline-none transition hover:border-stone-300 focus-visible:border-teal-600/80 focus-visible:ring-2 focus-visible:ring-teal-600/15"
             />
             <button
               type="button"
@@ -59,7 +59,7 @@ export function RevisionHistory() {
                 saveRevisionSnapshot(note);
                 setNote("");
               }}
-              className="inline-flex min-h-11 min-w-[44px] shrink-0 items-center justify-center rounded-xl bg-teal-700 px-4 text-xs font-semibold uppercase tracking-wide text-white hover:bg-teal-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600/40"
+              className="inline-flex min-h-11 min-w-[44px] shrink-0 items-center justify-center rounded-lg bg-teal-700 px-4 text-xs font-semibold text-white shadow-sm hover:bg-teal-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600/40"
             >
               Save snapshot
             </button>
@@ -76,7 +76,7 @@ export function RevisionHistory() {
             return (
               <li
                 key={rev.id}
-                className="flex flex-col gap-2 rounded-xl border border-stone-200/50 bg-white/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-2 rounded-lg border border-stone-200 bg-stone-50/50 p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-stone-900">{rev.note}</p>

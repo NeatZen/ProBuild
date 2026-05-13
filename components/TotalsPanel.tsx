@@ -7,7 +7,7 @@ import { useMoneyFormatter } from "@/hooks/useMoneyFormatter";
 import type { CategoryMarkup } from "@/lib/estimateTypes";
 import { selectActiveEstimate, useProBuildStore } from "@/store/proBuildStore";
 
-import { inputClass, labelClassCompact } from "@/lib/uiTokens";
+import { cardSurfaceDock, inputClass, labelClassCompact } from "@/lib/uiTokens";
 
 const dockInputClass = `${inputClass} min-h-[44px] max-sm:min-h-[44px]`;
 
@@ -53,7 +53,7 @@ export function TotalsPanel() {
     <aside
       id="totals-panel"
       aria-label="Totals and adjustments"
-      className="print-show fixed inset-x-0 bottom-0 z-20 flex max-h-[min(42vh,20rem)] flex-col border-t border-stone-200/55 bg-white/55 shadow-[0_-18px_50px_-22px_rgba(28,25,23,0.22)] backdrop-blur-2xl max-sm:pb-[max(0.35rem,env(safe-area-inset-bottom))] print:static print:max-h-none print:flex-none print:border-0 print:bg-transparent print:pb-0 print:shadow-none sm:static sm:z-0 sm:max-h-none sm:border-0 sm:bg-transparent sm:pb-0 sm:shadow-none sm:backdrop-blur-none"
+      className="print-show fixed inset-x-0 bottom-0 z-20 flex max-h-[min(42vh,20rem)] flex-col border-t border-stone-200 bg-white/95 shadow-[0_-4px_28px_-6px_rgba(15,23,42,0.08)] backdrop-blur-sm max-sm:pb-[max(0.35rem,env(safe-area-inset-bottom))] print:static print:max-h-none print:flex-none print:border-0 print:bg-transparent print:pb-0 print:shadow-none sm:static sm:z-0 sm:max-h-none sm:border-0 sm:bg-transparent sm:pb-0 sm:shadow-none sm:backdrop-blur-none"
     >
       <span id="totals-panel-start" tabIndex={-1} className="sr-only">
         Totals panel
@@ -70,12 +70,9 @@ export function TotalsPanel() {
 
       <div className="flex min-h-0 flex-1 flex-col px-3 pt-2 sm:px-0 sm:pt-0">
         <div
-          className="relative mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-stone-200/55 border-b-0 bg-white/[0.68] shadow-[0_22px_60px_-38px_rgba(28,25,23,0.28)] ring-1 ring-white/45 backdrop-blur-md sm:mt-10 sm:rounded-2xl sm:border-b sm:shadow-[0_26px_70px_-40px_rgba(28,25,23,0.22)]"
+          className={`relative mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col overflow-hidden sm:mt-10 ${cardSurfaceDock}`}
         >
-          <div
-            className="h-0.5 shrink-0 bg-gradient-to-r from-teal-500 via-emerald-400 to-indigo-400 sm:h-1"
-            aria-hidden
-          />
+          <div className="h-px shrink-0 bg-teal-600" aria-hidden />
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:p-6 sm:pb-6">
             <div className="flex flex-wrap items-end justify-between gap-2 border-b border-stone-200/40 pb-2 sm:gap-3 sm:pb-4">
@@ -161,7 +158,7 @@ export function TotalsPanel() {
               </div>
             </div>
 
-            <div className="mt-3 rounded-xl border border-stone-200/45 bg-stone-50/50 p-2.5 sm:mt-4 sm:p-3">
+            <div className="mt-3 rounded-lg border border-stone-200 bg-stone-50 p-2.5 sm:mt-4 sm:p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className={labelClassCompact}>Markup by category</p>
                 <button
@@ -222,7 +219,7 @@ export function TotalsPanel() {
             </div>
 
             {totals.byCategory.length > 0 ? (
-              <div className="mt-2 max-sm:max-h-[min(28vh,12rem)] max-sm:overflow-y-auto sm:mt-5 sm:max-h-none rounded-xl border border-stone-200/45 bg-gradient-to-b from-stone-50/90 to-white/40 p-2.5 sm:rounded-2xl sm:p-4">
+              <div className="mt-2 max-sm:max-h-[min(28vh,12rem)] max-sm:overflow-y-auto sm:mt-5 sm:max-h-none rounded-lg border border-stone-200 bg-stone-50 p-2.5 sm:p-4">
                 <p className={labelClassCompact}>By category</p>
                 <ul className="mt-2 space-y-1.5 text-xs sm:mt-3 sm:space-y-2 sm:text-sm">
                   {totals.byCategory.map((row) => (
@@ -275,23 +272,14 @@ export function TotalsPanel() {
                 <dd className="font-medium text-stone-900 font-mono">{formatMoney(totals.retentionAmount)}</dd>
               </div>
 
-              <div className="mt-2 overflow-hidden rounded-xl bg-gradient-to-br from-stone-900 via-stone-800 to-stone-950 p-px shadow-lg shadow-stone-900/30 print:border print:border-stone-300 print:bg-white print:p-0 print:shadow-none sm:mt-4 sm:rounded-2xl">
-                <div className="relative flex items-center justify-between gap-2 overflow-hidden rounded-[11px] bg-gradient-to-br from-stone-900 to-stone-800 px-3 py-2.5 text-white print:rounded-lg print:bg-white print:text-stone-900 print:shadow-none sm:gap-3 sm:rounded-[15px] sm:px-4 sm:py-3.5">
-                  <div
-                    className="pointer-events-none absolute inset-0 bg-[radial-gradient(90%_120%_at_0%_0%,rgba(255,255,255,0.14),transparent_55%)]"
-                    aria-hidden
-                  />
-                  <dt className="relative text-xs font-semibold tracking-tight sm:text-sm">Grand total</dt>
-                  <dd
-                    className="relative text-base font-bold tabular-nums tracking-tight font-mono sm:text-lg md:text-xl"
-                    aria-live="off"
-                  >
-                    {formatMoney(totals.grandTotal)}
-                  </dd>
-                </div>
+              <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-stone-900 px-4 py-3 text-white shadow-sm sm:mt-4 print:border print:border-stone-300 print:bg-white print:text-stone-900">
+                <dt className="text-xs font-semibold tracking-tight sm:text-sm">Grand total</dt>
+                <dd className="text-base font-bold tabular-nums tracking-tight font-mono sm:text-lg md:text-xl" aria-live="off">
+                  {formatMoney(totals.grandTotal)}
+                </dd>
               </div>
-              <div className="flex justify-between gap-3 rounded-lg border border-teal-200/60 bg-teal-50/50 px-3 py-2 tabular-nums sm:rounded-xl">
-                <dt className="text-teal-950/90">Net due (after retention)</dt>
+              <div className="flex justify-between gap-3 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2.5 tabular-nums">
+                <dt className="text-sm font-medium text-teal-950">Net due (after retention)</dt>
                 <dd className="font-semibold text-teal-950 font-mono">{formatMoney(totals.netDue)}</dd>
               </div>
             </dl>

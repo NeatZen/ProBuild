@@ -25,7 +25,7 @@ export function LineSearchBar({ matchCount, totalLines }: Props) {
   const setLocale = useProBuildStore((s) => s.setLocale);
 
   return (
-    <div className="print-hide mt-5 flex flex-col gap-3 rounded-2xl border border-stone-200/50 bg-white/45 p-4 shadow-sm ring-1 ring-white/40 backdrop-blur-sm sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
+    <div className="print-hide mt-5 flex flex-col gap-2.5 rounded-xl border border-stone-200 bg-white p-4 shadow-sm sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
       <div className="min-w-0 flex-1">
         <label className="text-[10px] font-semibold uppercase tracking-wider text-stone-500" htmlFor="line-search">
           Find lines
@@ -35,7 +35,7 @@ export function LineSearchBar({ matchCount, totalLines }: Props) {
           value={lineFilter}
           onChange={(e) => setLineFilter(e.target.value)}
           placeholder="Filter by description, category, unit…"
-          className="mt-1.5 w-full min-h-11 rounded-xl border border-stone-200/90 bg-white/90 px-3.5 py-2 text-sm text-stone-900 shadow-inner shadow-stone-900/5 outline-none focus-visible:ring-2 focus-visible:ring-teal-500/25"
+          className="mt-1.5 w-full min-h-11 rounded-lg border border-stone-200 bg-white px-3.5 py-2 text-sm text-stone-900 shadow-sm outline-none transition hover:border-stone-300 focus-visible:border-teal-600/80 focus-visible:ring-2 focus-visible:ring-teal-600/15"
         />
         {lineFilter.trim() ? (
           <p className="mt-1 text-[11px] text-stone-500">
@@ -52,7 +52,7 @@ export function LineSearchBar({ matchCount, totalLines }: Props) {
             id="currency"
             value={currency}
             onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-            className="mt-1.5 block min-h-11 w-full min-w-[6.5rem] rounded-xl border border-stone-200/90 bg-white/90 px-3 text-sm font-medium text-stone-900 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-teal-500/25 sm:w-auto"
+            className="mt-1.5 block min-h-11 w-full min-w-[6.5rem] rounded-lg border border-stone-200 bg-white px-3 text-sm font-medium text-stone-900 shadow-sm outline-none transition hover:border-stone-300 focus-visible:border-teal-600/80 focus-visible:ring-2 focus-visible:ring-teal-600/15 sm:w-auto"
           >
             {CURRENCIES.map((c) => (
               <option key={c.value} value={c.value}>
@@ -70,7 +70,7 @@ export function LineSearchBar({ matchCount, totalLines }: Props) {
             value={locale}
             onChange={(e) => setLocale(e.target.value)}
             placeholder="en-US"
-            className="mt-1.5 w-full min-h-11 rounded-xl border border-stone-200/90 bg-white/90 px-3 font-mono text-sm text-stone-900 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-teal-500/25"
+            className="mt-1.5 w-full min-h-11 rounded-lg border border-stone-200 bg-white px-3 font-mono text-sm text-stone-900 shadow-sm outline-none transition hover:border-stone-300 focus-visible:border-teal-600/80 focus-visible:ring-2 focus-visible:ring-teal-600/15"
           />
         </div>
       </div>

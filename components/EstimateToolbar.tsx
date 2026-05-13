@@ -2,6 +2,7 @@
 
 import { ASSEMBLIES } from "@/lib/assemblies";
 import { LINE_TEMPLATES } from "@/lib/lineTemplates";
+import { toolbarWell } from "@/lib/uiTokens";
 import { useProBuildStore } from "@/store/proBuildStore";
 
 type Props = {
@@ -40,7 +41,7 @@ function IconPrint({ className }: { className?: string }) {
 }
 
 const ghostBtn =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200/70 bg-white/65 px-3.5 text-sm font-medium text-stone-800 shadow-sm shadow-stone-900/[0.04] ring-1 ring-white/50 backdrop-blur-md transition duration-150 ease-out hover:border-stone-300/90 hover:bg-white active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600/35";
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3.5 text-sm font-medium text-stone-800 shadow-sm transition hover:border-stone-300 hover:bg-stone-50 active:bg-stone-100/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600/35";
 
 export function EstimateToolbar({ onAddLine, onExportCsv, onPrint, onClear }: Props) {
   const insertTemplate = useProBuildStore((s) => s.insertTemplate);
@@ -53,22 +54,15 @@ export function EstimateToolbar({ onAddLine, onExportCsv, onPrint, onClear }: Pr
           type="button"
           data-testid="add-line-item"
           onClick={onAddLine}
-          className="group relative inline-flex min-h-11 items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-b from-teal-600 to-teal-800 px-5 text-sm font-semibold text-white shadow-[0_14px_34px_-18px_rgba(15,118,110,0.75),inset_0_1px_0_rgba(255,255,255,0.2)] ring-1 ring-white/15 transition duration-150 ease-out hover:from-teal-500 hover:to-teal-700 hover:shadow-[0_18px_40px_-18px_rgba(15,118,110,0.55)] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-teal-700 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
         >
-          <span
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_0%_0%,rgba(255,255,255,0.22),transparent_55%)] opacity-90 transition group-hover:opacity-100"
-            aria-hidden
-          />
-          <span
-            className="relative flex h-6 w-6 items-center justify-center rounded-lg bg-white/15 text-lg font-light leading-none ring-1 ring-white/15"
-            aria-hidden
-          >
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-white/15 text-lg font-light leading-none" aria-hidden>
             +
           </span>
-          <span className="relative">Add line item</span>
+          Add line item
         </button>
 
-        <div className="flex flex-wrap gap-2 rounded-2xl border border-stone-200/55 bg-white/40 p-1.5 shadow-sm shadow-stone-900/[0.04] ring-1 ring-white/45 backdrop-blur-md sm:flex-1 sm:justify-end sm:gap-1.5">
+        <div className={`flex flex-wrap gap-2 sm:flex-1 sm:justify-end sm:gap-1.5 ${toolbarWell}`}>
           <label className="sr-only" htmlFor="template-insert">
             Insert template lines
           </label>
@@ -80,7 +74,7 @@ export function EstimateToolbar({ onAddLine, onExportCsv, onPrint, onClear }: Pr
               e.target.value = "";
               if (v) insertTemplate(v);
             }}
-            className="min-h-11 min-w-0 flex-1 rounded-xl border border-stone-200/80 bg-white/80 px-2 text-xs font-semibold text-stone-800 sm:max-w-[12rem] sm:flex-none sm:text-sm"
+            className="min-h-11 min-w-0 flex-1 rounded-lg border border-stone-200 bg-white px-2 text-xs font-medium text-stone-800 sm:max-w-[12rem] sm:flex-none sm:text-sm"
           >
             <option value="">+ Insert template…</option>
             {LINE_TEMPLATES.map((t) => (
@@ -100,7 +94,7 @@ export function EstimateToolbar({ onAddLine, onExportCsv, onPrint, onClear }: Pr
               e.target.value = "";
               if (v) insertAssembly(v);
             }}
-            className="min-h-11 min-w-0 flex-1 rounded-xl border border-teal-200/80 bg-teal-50/50 px-2 text-xs font-semibold text-teal-950 sm:max-w-[12rem] sm:flex-none sm:text-sm"
+            className="min-h-11 min-w-0 flex-1 rounded-lg border border-teal-200 bg-teal-50 px-2 text-xs font-medium text-teal-950 sm:max-w-[12rem] sm:flex-none sm:text-sm"
           >
             <option value="">+ Insert assembly…</option>
             {ASSEMBLIES.map((a) => (
@@ -109,18 +103,18 @@ export function EstimateToolbar({ onAddLine, onExportCsv, onPrint, onClear }: Pr
               </option>
             ))}
           </select>
-          <button type="button" onClick={onExportCsv} className={`${ghostBtn} flex-1 border-0 shadow-none ring-0 sm:flex-none`}>
-            <IconTable className="h-4 w-4 text-teal-700/80" />
+          <button type="button" onClick={onExportCsv} className={`${ghostBtn} flex-1 sm:flex-none`}>
+            <IconTable className="h-4 w-4 text-teal-700" />
             CSV
           </button>
-          <button type="button" onClick={onPrint} className={`${ghostBtn} flex-1 border-0 shadow-none ring-0 sm:flex-none`}>
-            <IconPrint className="h-4 w-4 text-teal-700/80" />
+          <button type="button" onClick={onPrint} className={`${ghostBtn} flex-1 sm:flex-none`}>
+            <IconPrint className="h-4 w-4 text-teal-700" />
             Print
           </button>
           <button
             type="button"
             onClick={onClear}
-            className={`${ghostBtn} flex-1 border-rose-200/80 text-rose-800 hover:border-rose-300 hover:bg-rose-50/80 focus-visible:outline-rose-400/45 sm:flex-none`}
+            className={`${ghostBtn} flex-1 border-rose-200 text-rose-900 hover:border-rose-300 hover:bg-rose-50 sm:flex-none`}
           >
             Clear fields
           </button>

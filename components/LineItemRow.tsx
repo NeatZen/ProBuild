@@ -68,14 +68,14 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
   const listId = `categories-${line.id}`;
 
   const iconBtn =
-    "inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-stone-200/75 bg-white/70 text-stone-600 shadow-sm shadow-stone-900/[0.03] ring-1 ring-white/40 backdrop-blur-sm transition duration-150 ease-out hover:border-teal-200/90 hover:bg-teal-50/70 hover:text-teal-900 disabled:cursor-not-allowed disabled:border-stone-100/90 disabled:bg-stone-50 disabled:text-stone-300 disabled:shadow-none";
+    "inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-600 shadow-sm transition duration-150 ease-out hover:border-stone-300 hover:bg-stone-50 hover:text-teal-900 disabled:cursor-not-allowed disabled:border-stone-100 disabled:bg-stone-50 disabled:text-stone-300 disabled:shadow-none";
 
   const dimmed = searchActive && !searchMatch;
 
   if (collapsed) {
     return (
       <article
-        className={`relative overflow-hidden rounded-2xl border border-stone-200/60 bg-white/75 p-4 shadow-md ring-1 ring-white/45 backdrop-blur-sm transition-opacity ${dimmed ? "opacity-35" : ""}`}
+        className={`relative overflow-hidden rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition-opacity ${dimmed ? "opacity-35" : ""}`}
       >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -116,11 +116,11 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
           if (window.confirm("Remove this line?")) removeLine(line.id);
         }
       }}
-      className={`group relative overflow-hidden p-5 sm:p-6 ${cardSurfaceElevated} before:pointer-events-none before:absolute before:inset-y-4 before:left-0 before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-teal-500 before:via-teal-600 before:to-cyan-600 before:opacity-90 before:shadow-[0_0_20px_rgba(20,184,166,0.35)] ${dimmed ? "opacity-35" : ""}`}
+      className={`group relative overflow-hidden p-5 sm:p-6 ${cardSurfaceElevated} before:pointer-events-none before:absolute before:inset-y-5 before:left-0 before:w-0.5 before:rounded-full before:bg-teal-600 ${dimmed ? "opacity-35" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <span className="inline-flex items-center gap-2 rounded-full border border-stone-200/70 bg-gradient-to-b from-white/90 to-stone-50/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600 shadow-sm shadow-stone-900/[0.04] ring-1 ring-white/55">
+          <span className="inline-flex items-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-stone-600">
             Line {index + 1}
           </span>
           {line.kitName ? (

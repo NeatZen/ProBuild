@@ -1,10 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f4f5;
+  --background: #f8fafc;
   --foreground: #1c1917;
-  --pb-accent: #0f766e;
-  --pb-accent-soft: rgba(15, 118, 110, 0.1);
+  --pb-accent: #0d9488;
+  --pb-accent-soft: rgba(13, 148, 136, 0.08);
+  --pb-canvas-mesh: rgba(13, 148, 136, 0.045);
 }
 
 @theme inline {
@@ -19,7 +20,7 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   text-rendering: optimizeLegibility;
-  letter-spacing: -0.011em;
+  letter-spacing: -0.013em;
 }
 
 .skip-link {

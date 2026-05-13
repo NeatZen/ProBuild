@@ -38,14 +38,14 @@ export function WorkspaceDataMenu({ onExportCsv }: Props) {
       <button
         type="button"
         onClick={() => fileRef.current?.click()}
-        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-200/80 bg-white/70 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-stone-800 hover:bg-white"
+        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-200 bg-white px-2.5 text-[11px] font-semibold uppercase tracking-wide text-stone-800 shadow-sm hover:bg-stone-50"
       >
         Import backup
       </button>
       <button
         type="button"
         onClick={() => downloadTextFile("probuild-backup.json", exportPersistJson(), "application/json")}
-        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-200/80 bg-white/70 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-stone-800 hover:bg-white"
+        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-200 bg-white px-2.5 text-[11px] font-semibold uppercase tracking-wide text-stone-800 shadow-sm hover:bg-stone-50"
       >
         Export backup
       </button>
@@ -58,7 +58,7 @@ export function WorkspaceDataMenu({ onExportCsv }: Props) {
             "application/json",
           )
         }
-        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-200/80 bg-white/70 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-stone-800 hover:bg-white"
+        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-200 bg-white px-2.5 text-[11px] font-semibold uppercase tracking-wide text-stone-800 shadow-sm hover:bg-stone-50"
       >
         Export this JSON
       </button>
@@ -71,14 +71,14 @@ export function WorkspaceDataMenu({ onExportCsv }: Props) {
             "text/html;charset=utf-8",
           )
         }
-        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-teal-200/80 bg-teal-50/70 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-teal-900 hover:bg-teal-50"
+        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-teal-200 bg-teal-50 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-teal-900 shadow-sm hover:bg-teal-100/80"
       >
         Client HTML
       </button>
       <button
         type="button"
         onClick={onExportCsv}
-        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-200/80 bg-white/70 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-stone-800 hover:bg-white"
+        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-200 bg-white px-2.5 text-[11px] font-semibold uppercase tracking-wide text-stone-800 shadow-sm hover:bg-stone-50"
       >
         CSV
       </button>
@@ -94,7 +94,7 @@ export function WorkspaceDataMenu({ onExportCsv }: Props) {
           }
           clearAllData();
         }}
-        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-rose-200/80 bg-white/70 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-rose-800 hover:bg-rose-50"
+        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-rose-200 bg-white px-2.5 text-[11px] font-semibold uppercase tracking-wide text-rose-900 shadow-sm hover:bg-rose-50"
       >
         Erase all
       </button>

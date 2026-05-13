@@ -22,8 +22,8 @@ export function EmptyEstimateTips({ estimate }: Props) {
   if (hasMeaningfulContent(estimate)) return null;
 
   return (
-    <div className={`${cardSurface} mt-6 border-teal-200/50 bg-gradient-to-br from-teal-50/80 to-white/70 p-4 sm:p-5`}>
-      <h2 className="text-sm font-semibold text-teal-950">First-run tips</h2>
+    <div className={`${cardSurface} mt-6 border-teal-100 bg-gradient-to-b from-teal-50/60 to-white p-4 sm:p-5`}>
+      <h2 className="text-sm font-semibold text-stone-900">First-run tips</h2>
       <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-stone-700">
         <li>Name the project, then add line items or insert a template or assembly from the toolbar.</li>
         <li>
