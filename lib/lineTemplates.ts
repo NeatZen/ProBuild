@@ -1,10 +1,15 @@
-import type { LineItem } from "./estimateTypes";
+import type { LineItem, LineType } from "./estimateTypes";
+
+export type LineTemplateLineSeed = Pick<
+  LineItem,
+  "description" | "category" | "quantity" | "unit" | "unitCost"
+> & { lineType?: LineType };
 
 export type LineTemplate = {
   id: string;
   name: string;
   description: string;
-  lines: Omit<LineItem, "id">[];
+  lines: LineTemplateLineSeed[];
 };
 
 export const LINE_TEMPLATES: LineTemplate[] = [
