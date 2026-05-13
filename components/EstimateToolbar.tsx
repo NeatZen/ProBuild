@@ -1,5 +1,6 @@
 "use client";
 
+import { ASSEMBLIES } from "@/lib/assemblies";
 import { LINE_TEMPLATES } from "@/lib/lineTemplates";
 import { useProBuildStore } from "@/store/proBuildStore";
 
@@ -43,6 +44,7 @@ const ghostBtn =
 
 export function EstimateToolbar({ onAddLine, onExportCsv, onPrint, onClear }: Props) {
   const insertTemplate = useProBuildStore((s) => s.insertTemplate);
+  const insertAssembly = useProBuildStore((s) => s.insertAssembly);
 
   return (
     <div className="print-hide mt-7 flex flex-col gap-3">
@@ -78,12 +80,32 @@ export function EstimateToolbar({ onAddLine, onExportCsv, onPrint, onClear }: Pr
               e.target.value = "";
               if (v) insertTemplate(v);
             }}
-            className="min-h-11 min-w-0 flex-1 rounded-xl border border-stone-200/80 bg-white/80 px-2 text-xs font-semibold text-stone-800 sm:max-w-[14rem] sm:flex-none sm:text-sm"
+            className="min-h-11 min-w-0 flex-1 rounded-xl border border-stone-200/80 bg-white/80 px-2 text-xs font-semibold text-stone-800 sm:max-w-[12rem] sm:flex-none sm:text-sm"
           >
             <option value="">+ Insert template…</option>
             {LINE_TEMPLATES.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
+              </option>
+            ))}
+          </select>
+          <label className="sr-only" htmlFor="assembly-insert">
+            Insert assembly or kit
+          </label>
+          <select
+            id="assembly-insert"
+            defaultValue=""
+            onChange={(e) => {
+              const v = e.target.value;
+              e.target.value = "";
+              if (v) insertAssembly(v);
+            }}
+            className="min-h-11 min-w-0 flex-1 rounded-xl border border-teal-200/80 bg-teal-50/50 px-2 text-xs font-semibold text-teal-950 sm:max-w-[12rem] sm:flex-none sm:text-sm"
+          >
+            <option value="">+ Insert assembly…</option>
+            {ASSEMBLIES.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
               </option>
             ))}
           </select>

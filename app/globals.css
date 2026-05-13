@@ -22,6 +22,41 @@ body {
   letter-spacing: -0.011em;
 }
 
+.skip-link {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 60;
+  transform: translateY(-120%);
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 0.5rem;
+  background: #115e59;
+  padding: 0.65rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.35);
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+  outline: 2px solid #99f6e4;
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--pb-accent) 55%, white);
+  outline-offset: 2px;
+}
+
 ::selection {
   background-color: color-mix(in oklab, var(--pb-accent) 26%, transparent);
 }

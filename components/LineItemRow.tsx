@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef } from "react";
+
 import type { LineItem } from "@/lib/estimateTypes";
 import { lineExtended } from "@/lib/estimateMath";
 import { cardSurfaceElevated, inputClass, labelClass } from "@/lib/uiTokens";
@@ -60,11 +62,13 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
   const collapsed = useProBuildStore((s) => s.ui.collapsedLineIds.includes(line.id));
   const toggleLineCollapsed = useProBuildStore((s) => s.toggleLineCollapsed);
 
+  const touchStartX = useRef<number | null>(null);
+
   const extended = lineExtended(line);
   const listId = `categories-${line.id}`;
 
   const iconBtn =
-    "inline-flex h-10 w-10 items-center justify-center rounded-xl border border-stone-200/75 bg-white/70 text-stone-600 shadow-sm shadow-stone-900/[0.03] ring-1 ring-white/40 backdrop-blur-sm transition duration-150 ease-out hover:border-teal-200/90 hover:bg-teal-50/70 hover:text-teal-900 disabled:cursor-not-allowed disabled:border-stone-100/90 disabled:bg-stone-50 disabled:text-stone-300 disabled:shadow-none";
+    "inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-stone-200/75 bg-white/70 text-stone-600 shadow-sm shadow-stone-900/[0.03] ring-1 ring-white/40 backdrop-blur-sm transition duration-150 ease-out hover:border-teal-200/90 hover:bg-teal-50/70 hover:text-teal-900 disabled:cursor-not-allowed disabled:border-stone-100/90 disabled:bg-stone-50 disabled:text-stone-300 disabled:shadow-none";
 
   const dimmed = searchActive && !searchMatch;
 
@@ -99,24 +103,42 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
 
   return (
     <article
+      onTouchStart={(e) => {
+        touchStartX.current = e.changedTouches[0]?.clientX ?? null;
+      }}
+      onTouchEnd={(e) => {
+        const start = touchStartX.current;
+        touchStartX.current = null;
+        if (start == null || totalLines <= 1) return;
+        const end = e.changedTouches[0]?.clientX;
+        if (end == null) return;
+        if (end - start < -88) {
+          if (window.confirm("Remove this line?")) removeLine(line.id);
+        }
+      }}
       className={`group relative overflow-hidden p-5 sm:p-6 ${cardSurfaceElevated} before:pointer-events-none before:absolute before:inset-y-4 before:left-0 before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-teal-500 before:via-teal-600 before:to-cyan-600 before:opacity-90 before:shadow-[0_0_20px_rgba(20,184,166,0.35)] ${dimmed ? "opacity-35" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="inline-flex items-center gap-2 rounded-full border border-stone-200/70 bg-gradient-to-b from-white/90 to-stone-50/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600 shadow-sm shadow-stone-900/[0.04] ring-1 ring-white/55">
-          Line {index + 1}
-        </span>
+        <div className="min-w-0">
+          <span className="inline-flex items-center gap-2 rounded-full border border-stone-200/70 bg-gradient-to-b from-white/90 to-stone-50/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600 shadow-sm shadow-stone-900/[0.04] ring-1 ring-white/55">
+            Line {index + 1}
+          </span>
+          {line.kitName ? (
+            <p className="mt-2 text-[11px] font-medium text-teal-800/90">Assembly: {line.kitName}</p>
+          ) : null}
+        </div>
         <div className="print-hide flex max-w-[70%] flex-wrap justify-end gap-1.5 sm:max-w-none">
           <button
             type="button"
             onClick={() => toggleLineCollapsed(line.id)}
-            className="inline-flex h-10 items-center justify-center rounded-xl border border-stone-200/80 bg-white/70 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700 shadow-sm hover:bg-stone-50"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-stone-200/80 bg-white/70 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700 shadow-sm hover:bg-stone-50"
           >
             Collapse
           </button>
           <button
             type="button"
             onClick={() => duplicateLine(line.id)}
-            className="inline-flex h-10 items-center justify-center rounded-xl border border-stone-200/80 bg-white/70 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700 shadow-sm hover:bg-stone-50"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-stone-200/80 bg-white/70 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700 shadow-sm hover:bg-stone-50"
           >
             Duplicate
           </button>
@@ -124,7 +146,7 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
             type="button"
             disabled={index === 0}
             onClick={() => copyLineFromPrevious(line.id)}
-            className="inline-flex h-10 items-center justify-center rounded-xl border border-stone-200/80 bg-white/70 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700 shadow-sm hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-35"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-stone-200/80 bg-white/70 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700 shadow-sm hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-35"
           >
             Copy prev
           </button>
@@ -150,7 +172,7 @@ export function LineItemRow({ line, index, totalLines, searchMatch, searchActive
             type="button"
             aria-label="Remove line"
             onClick={() => removeLine(line.id)}
-            className="inline-flex h-10 min-w-10 items-center justify-center rounded-xl border border-rose-200/80 bg-white/70 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-rose-800 shadow-sm ring-1 ring-white/35 transition duration-150 hover:bg-rose-50/90"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-rose-200/80 bg-white/70 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-rose-800 shadow-sm ring-1 ring-white/35 transition duration-150 hover:bg-rose-50/90"
           >
             Remove
           </button>

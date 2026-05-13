@@ -2,6 +2,14 @@ import type { Estimate } from "./estimateTypes";
 
 export const APP_SCHEMA_VERSION = 2 as const;
 
+/** Point-in-time snapshot of an estimate for local revision history. */
+export type EstimateRevision = {
+  id: string;
+  createdAt: string;
+  note: string;
+  payload: Estimate;
+};
+
 export type CurrencyCode = "USD" | "EUR" | "GBP" | "CAD" | "AUD";
 
 export type AppSettings = {
@@ -21,6 +29,8 @@ export type AppPersist = {
   activeEstimateId: string;
   settings: AppSettings;
   ui?: Partial<Pick<AppUiState, "lineFilter" | "collapsedLineIds">>;
+  /** Local snapshots keyed by estimate id. */
+  revisionsByEstimateId?: Record<string, EstimateRevision[]>;
 };
 
 export type SaveStatus = "idle" | "pending" | "saved" | "error";

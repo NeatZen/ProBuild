@@ -14,10 +14,12 @@ import {
 } from "@/store/proBuildStore";
 
 import { AppFooterNotes } from "./AppFooterNotes";
+import { EmptyEstimateTips } from "./EmptyEstimateTips";
 import { EstimateHeader } from "./EstimateHeader";
 import { EstimateToolbar } from "./EstimateToolbar";
 import { EstimatesShelf } from "./EstimatesShelf";
 import { LineItemRow } from "./LineItemRow";
+import { RevisionHistory } from "./RevisionHistory";
 import { SaveStatusBadge } from "./SaveStatusBadge";
 import { TotalsPanel } from "./TotalsPanel";
 import { ValidationBanner } from "./ValidationBanner";
@@ -115,6 +117,9 @@ export function EstimateShell() {
 
   return (
     <div className="print-root relative flex min-h-0 flex-1 flex-col overflow-x-hidden text-stone-900">
+      <a href="#totals-panel-start" className="skip-link">
+        Skip to totals
+      </a>
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[#f3f3f4]" aria-hidden />
       <div
         className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(100%_70%_at_0%_0%,rgba(45,212,191,0.11),transparent_55%),radial-gradient(90%_55%_at_100%_0%,rgba(99,102,241,0.06),transparent_50%),radial-gradient(120%_80%_at_50%_100%,rgba(15,118,110,0.07),transparent_55%)]"
@@ -163,6 +168,7 @@ export function EstimateShell() {
 
       <div className="relative mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-[calc(min(42vh,20rem)+env(safe-area-inset-bottom,0px)+1rem)] pt-7 sm:pb-14 sm:pt-8">
         <ValidationBanner warnings={validateEstimate(estimate)} />
+        <RevisionHistory />
         <EstimateHeader />
         <LineSearchBar matchCount={matchCount} totalLines={estimate.lines.length} />
         <EstimateToolbar
@@ -171,6 +177,8 @@ export function EstimateShell() {
           onPrint={handlePrint}
           onClear={handleClear}
         />
+
+        <EmptyEstimateTips estimate={estimate} />
 
         <div className="mt-10 print-show">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">

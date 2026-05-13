@@ -1,8 +1,17 @@
 import { create } from "zustand";
 
-import type { AppPersist, AppSettings, AppUiState, CurrencyCode, SaveStatus } from "@/lib/appTypes";
+import type {
+  AppPersist,
+  AppSettings,
+  AppUiState,
+  CurrencyCode,
+  EstimateRevision,
+  SaveStatus,
+} from "@/lib/appTypes";
 import { APP_SCHEMA_VERSION, defaultSettings, defaultUiState } from "@/lib/appTypes";
-import type { Estimate, LineItem } from "@/lib/estimateTypes";
+import { ASSEMBLIES } from "@/lib/assemblies";
+import { normalizeEstimate } from "@/lib/estimateNormalize";
+import type { CategoryMarkup, Estimate, LineItem } from "@/lib/estimateTypes";
 import {
   createDefaultEstimate,
   createEmptyLineItem,
@@ -42,14 +51,24 @@ function getActive(estimates: Estimate[], activeEstimateId: string): Estimate {
   return estimates[0];
 }
 
+function remapKitIds(lines: LineItem[]): LineItem[] {
+  const kitMap = new Map<string, string>();
+  return lines.map((row) => {
+    const next: LineItem = { ...row, id: newId() };
+    if (row.kitId) {
+      if (!kitMap.has(row.kitId)) kitMap.set(row.kitId, newId());
+      next.kitId = kitMap.get(row.kitId);
+    }
+    return next;
+  });
+}
+
 function cloneEstimate(source: Estimate): Estimate {
   return {
     ...source,
     id: newId(),
-    lines: source.lines.map((row) => ({
-      ...row,
-      id: newId(),
-    })),
+    categoryMarkups: source.categoryMarkups.map((r) => ({ ...r })),
+    lines: remapKitIds(source.lines),
     projectName: source.projectName.trim()
       ? `${source.projectName.trim()} (copy)`
       : "Untitled copy",
@@ -59,6 +78,7 @@ function cloneEstimate(source: Estimate): Estimate {
 export type ProBuildState = {
   estimates: Estimate[];
   activeEstimateId: string;
+  revisionsByEstimateId: Record<string, EstimateRevision[]>;
   settings: AppSettings;
   ui: AppUiState;
   saveStatus: SaveStatus;
@@ -70,6 +90,10 @@ export type ProBuildState = {
   setClientNotes: (v: string) => void;
   setMarkupPercent: (v: number) => void;
   setTaxPercent: (v: number) => void;
+  setOverheadPercent: (v: number) => void;
+  setBondInsuranceFlat: (v: number) => void;
+  setRetentionPercent: (v: number) => void;
+  setCategoryMarkups: (rows: CategoryMarkup[]) => void;
   setLine: (lineId: string, patch: Partial<LineItem>) => void;
   addLine: () => void;
   removeLine: (lineId: string) => void;
@@ -83,6 +107,10 @@ export type ProBuildState = {
   archiveEstimate: (id: string) => void;
   resetCurrentEstimateWorkspace: () => void;
   insertTemplate: (templateId: string) => void;
+  insertAssembly: (assemblyId: string) => void;
+  saveRevisionSnapshot: (note: string) => void;
+  restoreRevisionSnapshot: (revisionId: string) => void;
+  removeRevisionSnapshot: (revisionId: string) => void;
   setLineFilter: (q: string) => void;
   toggleLineCollapsed: (lineId: string) => void;
   setCurrency: (c: CurrencyCode) => void;
@@ -96,13 +124,14 @@ export type ProBuildState = {
 export function persistSnapshot(state: ProBuildState): AppPersist {
   return normalizeAppPersist({
     version: APP_SCHEMA_VERSION,
-    estimates: state.estimates,
+    estimates: state.estimates.map((e) => normalizeEstimate(e)),
     activeEstimateId: activeIdOf(state),
     settings: state.settings,
     ui: {
       lineFilter: state.ui.lineFilter,
       collapsedLineIds: state.ui.collapsedLineIds,
     },
+    revisionsByEstimateId: state.revisionsByEstimateId,
   });
 }
 
@@ -111,6 +140,7 @@ const seed = createDefaultAppPersist();
 export const useProBuildStore = create<ProBuildState>((set, get) => ({
   estimates: seed.estimates,
   activeEstimateId: seed.activeEstimateId,
+  revisionsByEstimateId: seed.revisionsByEstimateId ?? {},
   settings: { ...defaultSettings, ...seed.settings },
   ui: { ...defaultUiState, ...seed.ui },
   saveStatus: "idle",
@@ -124,6 +154,7 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
     set({
       estimates: n.estimates,
       activeEstimateId: n.activeEstimateId,
+      revisionsByEstimateId: n.revisionsByEstimateId ?? {},
       settings: { ...defaultSettings, ...n.settings },
       ui: {
         lineFilter: n.ui?.lineFilter ?? "",
@@ -151,6 +182,32 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
   setTaxPercent: (taxPercent) =>
     set((s) => ({
       estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({ ...e, taxPercent })),
+    })),
+
+  setOverheadPercent: (overheadPercent) =>
+    set((s) => ({
+      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({ ...e, overheadPercent })),
+    })),
+
+  setBondInsuranceFlat: (bondInsuranceFlat) =>
+    set((s) => ({
+      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({ ...e, bondInsuranceFlat })),
+    })),
+
+  setRetentionPercent: (retentionPercent) =>
+    set((s) => ({
+      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({ ...e, retentionPercent })),
+    })),
+
+  setCategoryMarkups: (categoryMarkups) =>
+    set((s) => ({
+      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({
+        ...e,
+        categoryMarkups: categoryMarkups.map((r) => ({
+          category: r.category,
+          percent: Number.isFinite(Number(r.percent)) ? Number(r.percent) : 0,
+        })),
+      })),
     })),
 
   setLine: (lineId, patch) =>
@@ -199,7 +256,12 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
         const idx = e.lines.findIndex((l) => l.id === lineId);
         if (idx < 0) return e;
         const row = e.lines[idx];
-        const copy: LineItem = { ...row, id: newId() };
+        const copy: LineItem = {
+          ...row,
+          id: newId(),
+          kitId: undefined,
+          kitName: undefined,
+        };
         const lines = [...e.lines.slice(0, idx + 1), copy, ...e.lines.slice(idx + 1)];
         return { ...e, lines };
       }),
@@ -271,25 +333,31 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
           estimates: s.estimates.map((e) => (e.id === id ? resetEstimateInPlace(id) : e)),
           activeEstimateId: id,
           ui: { ...s.ui, collapsedLineIds: [] },
+          revisionsByEstimateId: { ...s.revisionsByEstimateId, [id]: [] },
         };
       }
       const next = s.estimates.filter((e) => e.id !== id);
       const nextActive =
         id === s.activeEstimateId ? next[0].id : activeIdOf({ estimates: next, activeEstimateId: s.activeEstimateId });
+      const restRevisions = { ...s.revisionsByEstimateId };
+      delete restRevisions[id];
       return {
         estimates: next,
         activeEstimateId: nextActive,
         ui: { ...s.ui, collapsedLineIds: [] },
+        revisionsByEstimateId: restRevisions,
       };
     }),
 
   resetCurrentEstimateWorkspace: () =>
-    set((s) => ({
-      estimates: s.estimates.map((e) =>
-        e.id === s.activeEstimateId ? resetEstimateInPlace(e.id) : e,
-      ),
-      ui: { ...s.ui, collapsedLineIds: [] },
-    })),
+    set((s) => {
+      const id = s.activeEstimateId;
+      return {
+        estimates: s.estimates.map((e) => (e.id === id ? resetEstimateInPlace(e.id) : e)),
+        ui: { ...s.ui, collapsedLineIds: [] },
+        revisionsByEstimateId: { ...s.revisionsByEstimateId, [id]: [] },
+      };
+    }),
 
   insertTemplate: (templateId) => {
     const t = LINE_TEMPLATES.find((x) => x.id === templateId);
@@ -301,6 +369,68 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
       })),
     }));
   },
+
+  insertAssembly: (assemblyId) => {
+    const def = ASSEMBLIES.find((x) => x.id === assemblyId);
+    if (!def) return;
+    const kitId = newId();
+    set((s) => ({
+      estimates: mapActive(s.estimates, s.activeEstimateId, (e) => ({
+        ...e,
+        lines: [
+          ...e.lines,
+          ...def.lines.map((row) => ({
+            ...row,
+            id: newId(),
+            kitId,
+            kitName: def.name,
+          })),
+        ],
+      })),
+    }));
+  },
+
+  saveRevisionSnapshot: (note) =>
+    set((s) => {
+      const id = activeIdOf(s);
+      const cur = normalizeEstimate(getActive(s.estimates, id));
+      const rev: EstimateRevision = {
+        id: newId(),
+        createdAt: new Date().toISOString(),
+        note: note.trim() || "Snapshot",
+        payload: cur,
+      };
+      const prev = s.revisionsByEstimateId[id] ?? [];
+      const nextList = [rev, ...prev].slice(0, 40);
+      return {
+        revisionsByEstimateId: { ...s.revisionsByEstimateId, [id]: nextList },
+      };
+    }),
+
+  restoreRevisionSnapshot: (revisionId) =>
+    set((s) => {
+      const id = activeIdOf(s);
+      const list = s.revisionsByEstimateId[id] ?? [];
+      const rev = list.find((r) => r.id === revisionId);
+      if (!rev) return s;
+      const restored = normalizeEstimate(rev.payload);
+      const merged: Estimate = { ...restored, id };
+      return {
+        estimates: s.estimates.map((e) => (e.id === id ? merged : e)),
+      };
+    }),
+
+  removeRevisionSnapshot: (revisionId) =>
+    set((s) => {
+      const id = activeIdOf(s);
+      const list = s.revisionsByEstimateId[id] ?? [];
+      return {
+        revisionsByEstimateId: {
+          ...s.revisionsByEstimateId,
+          [id]: list.filter((r) => r.id !== revisionId),
+        },
+      };
+    }),
 
   setLineFilter: (lineFilter) => set((s) => ({ ui: { ...s.ui, lineFilter } })),
 
@@ -335,6 +465,7 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
       set({
         estimates: normalized.estimates,
         activeEstimateId: normalized.activeEstimateId,
+        revisionsByEstimateId: normalized.revisionsByEstimateId ?? {},
         settings: { ...defaultSettings, ...normalized.settings },
         ui: {
           lineFilter: normalized.ui?.lineFilter ?? "",
@@ -363,6 +494,7 @@ export const useProBuildStore = create<ProBuildState>((set, get) => ({
     set({
       estimates: p.estimates,
       activeEstimateId: p.activeEstimateId,
+      revisionsByEstimateId: p.revisionsByEstimateId ?? {},
       settings: p.settings,
       ui: { ...defaultUiState },
       saveStatus: "idle",
