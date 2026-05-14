@@ -19,7 +19,7 @@ import {
 } from "./appTypes";
 import type { LineType } from "./estimateTypes";
 import { normalizeEstimate } from "./estimateNormalize";
-import { createDefaultEstimate, type Estimate } from "./estimateTypes";
+import { createBootstrapEstimate, createDefaultEstimate, type Estimate } from "./estimateTypes";
 
 export const LEGACY_STORAGE_KEY = "probuild-estimate-v1";
 export const APP_STORAGE_KEY = "probuild-app-v4";
@@ -304,6 +304,24 @@ export function createDefaultAppPersist(): AppPersist {
     customAssemblies: [],
     lastModifiedMs: now,
     persistGeneration: 1,
+  };
+}
+
+/** Server + client aligned initial persist before localStorage/IndexedDB hydrate. */
+export function createStableBootstrapAppPersist(): AppPersist {
+  const e = createBootstrapEstimate();
+  return {
+    version: APP_SCHEMA_VERSION,
+    estimates: [e],
+    activeEstimateId: e.id,
+    settings: { ...defaultSettings },
+    ui: { ...defaultUiState },
+    revisionsByEstimateId: {},
+    branding: { ...defaultBranding },
+    savedLineLibrary: [],
+    customAssemblies: [],
+    lastModifiedMs: 0,
+    persistGeneration: 0,
   };
 }
 

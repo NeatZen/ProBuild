@@ -45,6 +45,7 @@ import { LINE_TEMPLATES } from "@/lib/lineTemplates";
 import {
   clearAllAppStorage,
   createDefaultAppPersist,
+  createStableBootstrapAppPersist,
   loadOrCreateAppPersist,
   normalizeAppPersist,
   parsePersistJsonString,
@@ -284,10 +285,10 @@ function pushUndo(s: ProBuildState, label: string): Pick<ProBuildState, "undoSta
   return { undoStack };
 }
 
-const seed = createDefaultAppPersist();
+const seed = createStableBootstrapAppPersist();
 const seedMeta: PersistMeta = {
-  lastModifiedMs: seed.lastModifiedMs ?? Date.now(),
-  persistGeneration: seed.persistGeneration ?? 1,
+  lastModifiedMs: seed.lastModifiedMs ?? 0,
+  persistGeneration: seed.persistGeneration ?? 0,
 };
 
 export const useProBuildStore = create<ProBuildState>((set, get) => ({

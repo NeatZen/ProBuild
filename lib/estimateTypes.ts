@@ -120,6 +120,29 @@ export function createEmptyLineItem(id: string, sectionId: string): LineItem {
   };
 }
 
+/** Fixed ids shared by server/client for the empty store bootstrap (avoid React hydration mismatches). */
+export function createBootstrapEstimate(): Estimate {
+  const sid = "pb-seed-section";
+  return {
+    version: ESTIMATE_SCHEMA_VERSION,
+    id: "pb-seed-estimate",
+    projectName: "",
+    clientNotes: "",
+    markupPercent: 0,
+    markupMode: "flat",
+    markupTiers: [],
+    taxPercent: 0,
+    taxScope: "all",
+    jurisdictionLabel: "",
+    overheadPercent: 0,
+    bondInsuranceFlat: 0,
+    retentionPercent: 0,
+    categoryMarkups: [],
+    sections: [{ id: sid, label: "Base bid", kind: "base" }],
+    lines: [createEmptyLineItem("pb-seed-line", sid)],
+  };
+}
+
 export function createDefaultEstimate(): Estimate {
   const id =
     typeof crypto !== "undefined" && "randomUUID" in crypto
