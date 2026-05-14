@@ -1,5 +1,6 @@
 "use client";
 
+import { secondaryButton } from "@/lib/uiTokens";
 import { useProBuildStore } from "@/store/proBuildStore";
 
 function labelFor(e: { id: string; projectName: string }) {
@@ -25,7 +26,7 @@ export function EstimatesShelf() {
           id="estimate-select"
           value={activeId}
           onChange={(e) => switchEstimate(e.target.value)}
-          className="min-h-11 min-w-0 flex-1 rounded-xl border border-stone-200/90 bg-white/80 px-3 text-sm font-medium text-stone-900 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-teal-500/25 sm:flex-none sm:min-w-[12rem]"
+          className="min-h-11 min-w-0 flex-1 rounded-lg border border-stone-200 bg-white px-3 text-sm font-medium text-stone-900 shadow-sm outline-none transition hover:border-stone-300 focus-visible:border-teal-600/80 focus-visible:ring-2 focus-visible:ring-teal-600/15 sm:flex-none sm:min-w-[12rem]"
         >
           {estimates.map((e) => (
             <option key={e.id} value={e.id}>
@@ -33,18 +34,10 @@ export function EstimatesShelf() {
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          onClick={() => createNewEstimate()}
-          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-stone-200/80 bg-white/70 px-3 text-xs font-semibold uppercase tracking-wide text-stone-800 shadow-sm hover:bg-white"
-        >
+        <button type="button" onClick={() => createNewEstimate()} className={secondaryButton}>
           New
         </button>
-        <button
-          type="button"
-          onClick={() => duplicateActiveEstimate()}
-          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-stone-200/80 bg-white/70 px-3 text-xs font-semibold uppercase tracking-wide text-stone-800 shadow-sm hover:bg-white"
-        >
+        <button type="button" onClick={() => duplicateActiveEstimate()} className={secondaryButton}>
           Duplicate
         </button>
         <button
@@ -61,7 +54,7 @@ export function EstimatesShelf() {
             }
             archiveEstimate(activeId);
           }}
-          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-rose-200/80 bg-white/70 px-3 text-xs font-semibold uppercase tracking-wide text-rose-800 shadow-sm hover:bg-rose-50"
+          className={`${secondaryButton} border-rose-200 text-rose-900 hover:border-rose-300 hover:bg-rose-50`}
         >
           {estimates.length > 1 ? "Remove" : "Reset"}
         </button>

@@ -1,40 +1,50 @@
-/** Shared Tailwind class strings for a consistent ProBuild look. */
+export const headingClass =
+  "font-heading font-semibold tracking-tight text-stone-900";
+
+/** Page title (hero) — slightly larger weight */
+export const displayHeadingClass = "font-heading font-semibold tracking-tight text-stone-900";
 
 export const labelClass =
-  "text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500/90";
+  "text-[11px] font-semibold uppercase tracking-[0.1em] text-stone-500";
 
 export const labelClassCompact =
-  "text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500/90 sm:text-[11px] sm:tracking-[0.12em]";
+  "text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 sm:text-[11px] sm:tracking-[0.1em]";
 
 export const inputClass =
   [
-    "mt-1.5 w-full min-h-11 rounded-xl border border-stone-200/90 bg-white/[0.88] px-3.5 py-2.5 text-base text-stone-900",
-    "shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] shadow-sm shadow-stone-900/[0.04]",
+    "mt-1.5 w-full rounded-lg border border-stone-200 bg-white px-3.5 py-2.5 text-base text-stone-900",
+    "shadow-sm shadow-stone-900/[0.03]",
     "outline-none transition duration-150 ease-out",
-    "placeholder:text-stone-400/85",
-    "focus-visible:border-teal-400/95 focus-visible:bg-white",
-    "focus-visible:shadow-[inset_0_1px_0_#fff,0_0_0_3px_rgba(20,184,166,0.16)]",
-    "max-sm:mt-1 max-sm:min-h-9 max-sm:rounded-lg max-sm:px-2.5 max-sm:py-1.5 max-sm:text-sm",
+    "placeholder:text-stone-400",
+    "hover:border-stone-300",
+    "focus-visible:border-teal-600/80 focus-visible:bg-white",
+    "focus-visible:ring-2 focus-visible:ring-teal-600/15",
+    "max-sm:mt-1 max-sm:rounded-md max-sm:px-3 max-sm:py-2 max-sm:text-sm",
   ].join(" ");
 
+/** Primary content cards */
 export const cardSurface =
   [
-    "rounded-2xl border border-stone-200/55 bg-white/[0.68]",
-    "shadow-[0_1px_0_rgba(255,255,255,0.88)_inset,0_22px_56px_-34px_rgba(28,25,23,0.2)]",
-    "ring-1 ring-white/45 backdrop-blur-md",
+    "rounded-xl border border-stone-200 bg-white",
+    "shadow-sm shadow-stone-900/[0.04]",
   ].join(" ");
 
 /** Sticky totals dock: top-rounded on mobile, full card from `sm`. */
 export const cardSurfaceDock =
   [
-    "rounded-t-2xl rounded-b-none border border-stone-200/55 border-b-0 bg-white/[0.68]",
-    "shadow-[0_1px_0_rgba(255,255,255,0.88)_inset,0_22px_56px_-34px_rgba(28,25,23,0.2)]",
-    "ring-1 ring-white/45 backdrop-blur-md sm:rounded-2xl sm:border-b",
+    "rounded-t-xl rounded-b-none border border-b-0 border-stone-200 bg-white",
+    "shadow-sm shadow-stone-900/[0.06] sm:rounded-xl sm:border sm:shadow-md sm:shadow-stone-900/[0.06]",
   ].join(" ");
 
 export const cardSurfaceElevated =
   [
     cardSurface,
     "transition duration-200 ease-out",
-    "hover:border-stone-300/70 hover:shadow-[0_1px_0_rgba(255,255,255,0.92)_inset,0_28px_70px_-36px_rgba(15,118,110,0.18)]",
+    "hover:border-stone-300 hover:shadow-md hover:shadow-stone-900/[0.05]",
   ].join(" ");
+
+export const toolbarWellFrame =
+  "rounded-xl border border-stone-200 bg-stone-50/80 shadow-sm shadow-stone-900/[0.03]";
+
+export const secondaryButton =
+  "inline-flex min-h-11 items-center justify-center rounded-lg border border-stone-200 bg-white px-3 text-xs font-semibold uppercase tracking-wide text-stone-800 shadow-sm transition hover:border-stone-300 hover:bg-stone-50 active:bg-stone-100/80";

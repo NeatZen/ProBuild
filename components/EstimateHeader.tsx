@@ -1,6 +1,7 @@
 "use client";
 
-import { cardSurface, inputClass, labelClass } from "@/lib/uiTokens";
+import { cardSurface, headingClass, inputClass, labelClass } from "@/lib/uiTokens";
+import { useDensityClasses } from "@/hooks/useDensityClasses";
 import { selectActiveEstimate, useProBuildStore } from "@/store/proBuildStore";
 
 export function EstimateHeader() {
@@ -8,19 +9,20 @@ export function EstimateHeader() {
   const clientNotes = useProBuildStore((s) => selectActiveEstimate(s).clientNotes);
   const setProjectName = useProBuildStore((s) => s.setProjectName);
   const setClientNotes = useProBuildStore((s) => s.setClientNotes);
+  const d = useDensityClasses();
 
   return (
-    <div className={`print-show overflow-hidden p-5 sm:p-6 ${cardSurface}`}>
-      <div className="flex items-center gap-3 border-b border-stone-200/50 pb-4">
+    <div className={`print-show overflow-hidden ${cardSurface} ${d.cardPad}`}>
+      <div className="flex items-center gap-3 border-b border-stone-100 pb-4">
         <span
-          className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-teal-600/15 to-teal-700/5 ring-1 ring-teal-700/10"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-stone-200 bg-stone-50 text-stone-500"
           aria-hidden
         >
-          <span className="h-2 w-2 rounded-full bg-teal-600 shadow-[0_0_0_4px_rgba(13,148,136,0.12)]" />
+          <span className="h-1.5 w-1.5 rounded-full bg-teal-600" />
         </span>
         <div>
-          <p className="text-xs font-semibold text-stone-800">Project details</p>
-          <p className="text-[11px] text-stone-500">Shown on print and export</p>
+          <p className={`${headingClass} text-sm`}>Project details</p>
+          <p className="text-xs text-stone-500">Shown on print and export</p>
         </div>
       </div>
 
@@ -33,9 +35,14 @@ export function EstimateHeader() {
             id="project-name"
             name="projectName"
             value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
+            onChange={(e) => {
+              setProjectName(e.target.value);
+              if (e.target.value.trim()) {
+                useProBuildStore.getState().setOnboardingChecklist({ namedProject: true });
+              }
+            }}
             placeholder="e.g. Oak St. kitchen remodel"
-            className={inputClass}
+            className={`${inputClass} ${d.formFieldMinH}`}
             autoComplete="off"
           />
         </div>
@@ -50,7 +57,7 @@ export function EstimateHeader() {
             onChange={(e) => setClientNotes(e.target.value)}
             placeholder="Optional details, allowances, exclusions…"
             rows={3}
-            className={`${inputClass} resize-y leading-relaxed`}
+            className={`${inputClass} ${d.formFieldMinH} resize-y leading-relaxed`}
           />
         </div>
       </div>

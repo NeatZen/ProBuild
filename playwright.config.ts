@@ -11,15 +11,18 @@ export default defineConfig({
     timeout: 30_000,
   },
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: "http://127.0.0.1:3001",
     trace: "on-first-retry",
     actionTimeout: 30_000,
   },
   webServer: {
-    command: "npm run build && npm run start -- -p 3000",
-    url: "http://127.0.0.1:3000",
-    reuseExistingServer: !process.env.CI,
+    command: "NEXT_PUBLIC_E2E=1 npm run build && NEXT_PUBLIC_E2E=1 npm run start -- -p 3001",
+    url: "http://127.0.0.1:3001",
+    reuseExistingServer: false,
     timeout: 180_000,
+    env: {
+      NEXT_PUBLIC_E2E: "1",
+    },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });
